@@ -27,9 +27,8 @@ class DashScopeCfg(BaseModel):
     # 通道选择：auto=按白名单逐模型路由 / token_plan=主力模型全走套餐 / general=全走通用
     channel: str = "auto"
     base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    vision_model: str = "qwen-vl-max"
-    fallback_model: str = "qwen-vl-plus"
-    text_model: str = "qwen-plus"
+    recognition_model: str = "qwen-vl-max"
+    answer_model: str = "qwen-plus"
     embedding_model: str = "text-embedding-v3"
     token_plan: TokenPlanCfg = Field(default_factory=TokenPlanCfg)
     temperature: float = 0.0

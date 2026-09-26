@@ -87,7 +87,7 @@ Key 分离原则：`.env` 里两个 Key 各自独立，删掉 `TOKEN_PLAN_API_KE
 
 | 配置块 | 关键项 | 说明 |
 |---|---|---|
-| dashscope | vision_model / text_model | 默认 `qwen-vl-max` / `qwen-plus`，temperature=0 确定性调用 |
+| dashscope | recognition_model / answer_model | 表格识别主力（多模态看图）/ 答题推理（纯文本），temperature=0 确定性调用 |
 | dashscope | vision_concurrency / text_concurrency | 并发信号量（限流保护） |
 | paths | files_dir / tests_xlsx | 官方数据位置 |
 | pdf | dpi / text_density_threshold | 页图渲染精度 / 数字 PDF 判定阈值（chars/页 > 50） |

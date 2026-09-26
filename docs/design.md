@@ -28,7 +28,7 @@
 |---|---|
 | 项目形态 | 离线批处理流水线（CLI 驱动） |
 | 技术路线 | **分类路由 + 多引擎融合**：pdfplumber（数字PDF确定性抽表）+ PaddleOCR（本地GPU）+ Qwen-VL（云端VLM）+ PDF文本层（校验源） |
-| 云端模型 | 阿里 DashScope：qwen-vl-max（主力）/ qwen-vl-plus（兜底）/ qwen-plus（文本推理） |
+| 云端模型 | 阿里 DashScope：qwen3.8-omni-flash（识别主力，多模态）/ qwen3.7-flash-2026-07-15（答题推理，纯文本） |
 | 真实规模 | **908 题**（extract 652 / thinking 216 / structure 39 / 脏行 1），90 个唯一文件（内容去重后 89，010≡056） |
 | 成本结构 | 识别阶段极轻（~90 文件），**答题阶段主导成本**（908 次文本调用）→ 答题质量与复核优先 |
 | 输出格式 | 已确认：`id` + `answer` 两列（submit-template.xlsx） |
@@ -455,9 +455,8 @@ table-qa cost    --run runs/xxx
 ```yaml
 dashscope:
   api_keys: [env:DASHSCOPE_API_KEY]
-  vision_model: qwen-vl-max
-  fallback_model: qwen-vl-plus
-  text_model: qwen-plus
+  recognition_model: qwen-vl-max           # 表格识别主力（看图，多模态）
+  answer_model: qwen-plus                  # 答题推理（纯文本）
   temperature: 0.0
   max_tokens: 8192
   vision_concurrency: 4

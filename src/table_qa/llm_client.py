@@ -44,9 +44,8 @@ class LLMHub:
                 "DASHSCOPE_API_KEY 未配置：请在项目根目录 .env 中填写，"
                 "或设置环境变量后重试（参考 .env.example）"
             )
-        self._text = self._build_client(cfg.text_model, settings)
-        self._vision = self._build_client(cfg.vision_model, settings)
-        self._vision_fallback = self._build_client(cfg.fallback_model, settings)
+        self._text = self._build_client(cfg.answer_model, settings)
+        self._vision = self._build_client(cfg.recognition_model, settings)
         # check_embedding_ctx_length=False：规避兼容网关的分词预处理差异（实测经验）
         # embedder 恒走通用通道（embedding 不在 Token Plan 白名单）
         self._embedder = OpenAIEmbeddings(
@@ -67,23 +66,19 @@ class LLMHub:
     # 调用接口
     # ------------------------------------------------------------------
 
-    def chat(self, prompt: str, *, phase: str, question_id: str | None = None,
-             model: str | None = None) -> str:
+    def chat(self, prompt: str, *, phase: str, question_id: str | None = None) -> str:
         """文本模型调用。返回模型输出文本。"""
-        client = self._pick_client(model)
-        sem = self._sem_text if client is self._text else self._sem_vision
         messages = [HumanMessage(content=prompt)]
         t0 = time.time()
-        with sem:
-            resp = self._invoke_with_retry(client, messages)
+        with self._sem_text:
+            resp = self._invoke_with_retry(self._text, messages)
         self._record_usage(resp, phase=phase, question_id=question_id,
                            prompt=prompt, latency=round(time.time() - t0, 1))
         return _text_of(resp)
 
     def vision(self, image_path: Path, prompt: str, *, phase: str,
-               question_id: str | None = None, use_fallback: bool = False) -> str:
-        """视觉模型调用（图片 + 文本提示）。use_fallback=True 时使用轻量模型。"""
-        client = self._vision_fallback if use_fallback else self._vision
+               question_id: str | None = None) -> str:
+        """视觉模型调用（图片 + 文本提示）。"""
         image_b64, media_type = _encode_image(image_path)
         messages = [HumanMessage(content=[
             {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{image_b64}"}},
@@ -91,7 +86,7 @@ class LLMHub:
         ])]
         t0 = time.time()
         with self._sem_vision:
-            resp = self._invoke_with_retry(client, messages)
+            resp = self._invoke_with_retry(self._vision, messages)
         self._record_usage(resp, phase=phase, question_id=question_id,
                            prompt=prompt, latency=round(time.time() - t0, 1),
                            image=str(image_path))
@@ -202,13 +197,6 @@ class LLMHub:
             max_tokens=cfg.max_tokens,
             timeout=_TIMEOUT,
         )
-
-    def _pick_client(self, model: str | None) -> ChatOpenAI:
-        if model == self._s.dashscope.fallback_model:
-            return self._vision_fallback
-        if model == self._s.dashscope.vision_model:
-            return self._vision
-        return self._text
 
     def _retry_policy(self):
         return retry(

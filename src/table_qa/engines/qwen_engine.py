@@ -1,7 +1,7 @@
 """Qwen-VL 视觉识别引擎（C/D/F 类主源）。
 
 - prompt 来自 prompts/recognize/table_recognition.yaml（F 类换 semantic_rebuild）
-- 解析失败重试一次（切换轻量模型）
+- 空结果重试一次（换 semantic_rebuild prompt，F 类兜底）
 - table_hint 注入 prompt 提升多表页面的目标表命中率
 """
 
@@ -47,18 +47,12 @@ class QwenEngine(TableEngine):
         raw = self._safe_vision(page.image_path, prompt, "recognize")
         pairs = extract_tables(raw) if raw else []
         if not pairs:
-            # 空结果重试链：先换语义重建 prompt（VLM 找不到线框表 = F 类强信号），
-            # 仍为空再降级轻量模型。真实赛题分类未知，此路径是 F 类兜底。
+            # 空结果重试：换语义重建 prompt（VLM 找不到线框表 = F 类强信号）。
+            # 真实赛题分类未知，此路径是 F 类兜底。
             logger.warning("VLM 输出无表格（{} p{}），semantic_rebuild 重试",
                            page.file_name, page.page_no)
             semantic_prompt = self._pm.render("semantic_rebuild")
             raw = self._safe_vision(page.image_path, semantic_prompt, "recognize_retry")
-            pairs = extract_tables(raw) if raw else []
-        if not pairs:
-            logger.warning("semantic_rebuild 仍无表格，轻量模型兜底（{} p{}）",
-                           page.file_name, page.page_no)
-            raw = self._safe_vision(page.image_path, prompt, "recognize_retry",
-                                    use_fallback=True)
             pairs = extract_tables(raw) if raw else []
 
         tables: list[NormalizedTable] = []

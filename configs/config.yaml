@@ -7,13 +7,8 @@ dashscope:
   channel: general
   # ─────────────────────────────────────────────────────────────────────────
   base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
-  # vision_model: qwen3.8-max
-  # fallback_model: qwen3.8-max
-  # text_model: qwen3.8-flash
-  # embedding_model: qwen3.7-text-embedding
-  vision_model: qwen3.8-omni-flash
-  fallback_model: qwen3.8-omni-flash
-  text_model: qwen3.7-flash-2026-07-15
+  recognition_model: qwen3.8-omni-flash          # 表格识别主力：看图抽表需多模态模型，flash 系速度/精度均衡
+  answer_model: qwen3.7-flash-2026-07-15         # 答题推理：纯文本无需视觉，锁日期版本防模型漂移
   embedding_model: qwen3.7-text-embedding
 
   token_plan:                        # 套餐通道（Key 在 .env 的 TOKEN_PLAN_API_KEY，与通用 Key 分开）

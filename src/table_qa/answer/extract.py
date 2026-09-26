@@ -1,15 +1,19 @@
-"""extract 题：LLM 定位取值 + 矩阵回查校验。"""
+"""extract 题：LLM 定位取值 + 矩阵回查校验 + 视觉降级。"""
 
 from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 
 from loguru import logger
 
+from table_qa.config import get_settings
 from table_qa.llm_client import LLMError, get_llm_hub
 from table_qa.prompts import get_prompt_manager
-from table_qa.schema import NormalizedTable, Question
+from table_qa.schema import FileProfile, NormalizedTable, Question
+
+_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 
 
 def _extract_json(text: str) -> dict:
@@ -76,3 +80,60 @@ def answer_extract(question: Question, table: NormalizedTable) -> dict:
         logger.warning("extract 回查失败 qid={} value={!r}", question.id, value)
     return {"value": value, "locate": data.get("locate", {}), "reason": data.get("reason", ""),
             "verified": verified}
+
+
+def value_empty(value: object) -> bool:
+    """extract 结果值是否为空（""/[]/None——触发视觉降级的条件）。"""
+    if value is None:
+        return True
+    if isinstance(value, list):
+        return len(value) == 0
+    return not str(value).strip()
+
+
+def vision_extract(question: Question, profile: FileProfile,
+                   table: NormalizedTable) -> dict | None:
+    """extract 视觉降级：答案不在表格矩阵（图像属性/卡片字段/最左侧表
+    头等）时 VLM 看原图直答。qid=484 等 17 题实测：extract LLM 明确答
+    "表中未找到"，但答案在原图上。
+
+    输入图：图片文件用原文件；PDF 用 ingest 渲染的页图（选中表所在页
+    优先，逐页最多 3 张）。返回与 answer_extract 同构 dict（vision 标
+    记降级来源）或 None（全部页都取不到值）。
+    """
+    images = _vision_images(profile, table)
+    if not images:
+        return None
+    pm = get_prompt_manager()
+    hints = {"string": "一个简短文本值", "number": "一个数值",
+             "json_array": "JSON 数组", "json": "JSON 结构"}
+    prompt = pm.render("extract_vision", question=question.question,
+                       format_hint=hints.get(question.answer_format, "一个简短文本值"))
+    hub = get_llm_hub()
+    for img in images:
+        try:
+            raw = hub.vision(img, prompt, phase="extract_vision", question_id=question.id)
+            data = _extract_json(raw)
+        except (LLMError, ValueError, json.JSONDecodeError) as e:
+            logger.warning("视觉降级失败 qid={} {}: {}", question.id, img.name, e)
+            continue
+        value = data.get("value", "")
+        if not value_empty(value):
+            logger.info("视觉降级命中 qid={} img={} value={!r}", question.id, img.name, value)
+            return {"value": value, "locate": {"source": "vision", "image": img.name},
+                    "reason": f"表格矩阵未取到，VLM 看原图直答：{data.get('reason', '')}",
+                    "verified": False, "vision": True}
+    return None
+
+
+def _vision_images(profile: FileProfile, table: NormalizedTable) -> list[Path]:
+    """视觉降级输入图：图片原文件 / PDF 渲染页图（选中表页优先）。"""
+    if profile.path.suffix.lower() in _IMAGE_EXTS:
+        return [profile.path] if profile.path.exists() else []
+    pages_dir = (get_settings().paths.abs_path(get_settings().paths.cache_dir)
+                 / "pages")
+    first = pages_dir / f"{profile.file_id}_p{table.page}.png"
+    ordered: list[Path] = [first] if first.exists() else []
+    ordered.extend(p for p in sorted(pages_dir.glob(f"{profile.file_id}_p*.png"))
+                   if p not in ordered)
+    return ordered[:3]

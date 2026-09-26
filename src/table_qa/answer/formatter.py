@@ -40,15 +40,50 @@ def format_answer(value: object, answer_format: str, precision: int | None = Non
 
 
 def _format_number(value: object, precision: int | None) -> str:
-    try:
-        num = float(str(value).replace(",", "").replace("，", "").strip())
-    except (ValueError, TypeError):
-        return str(value).strip()   # 无法数值化时保留原文（答案永不为空）
+    num = _to_number(value)
+    if num is None:
+        return "0"   # number 题答案永不为空：无数值残留（"未找到"/"--"）归一 0
     if precision is not None:
         return f"{num:.{precision}f}"
     if num.is_integer() and abs(num) < 1e15:
         return str(int(num))
     return repr(num).rstrip("0").rstrip(".") if "." in repr(num) else str(num)
+
+
+# number 清洗符号：货币（含全角＄￥）/百分号（含全角％）/约数（~≈约）/空白
+_NUM_SYMBOL_RE = re.compile(r"[＄$￥¥€£%％~≈约\s]")
+_NUM_PLAIN_RE = re.compile(r"-?\d+(?:\.\d+)?")
+
+
+def _to_number(value: object) -> float | None:
+    """尽力数值化，完全无数值返回 None（由 _format_number 归一 0）。
+
+    清洗链：整串括号（会计负数记法 "(7,756)" → -7756）→ 剥货币/百分/
+    约数符号与空白 → float。文本混合（值+占比 "5045 (33.1)"、单位残留
+    "116.03㎡"、识别乱码）退化为提取首个数值：千分位分组优先（复用
+    下方 split 守卫区的 _GROUPED_NUMBER_RE，"188,661,393.95" 是一个
+    值不是多值粘连），否则取最左裸数字段。
+    """
+    s = str(value).strip()
+    if not s:
+        return None
+    neg = s[0] in "(（" and s[-1] in ")）"
+    if neg:
+        s = s[1:-1].strip()
+    s = _NUM_SYMBOL_RE.sub("", s).replace(",", "").replace("，", "").strip()
+    if s:
+        try:
+            num = float(s)
+        except ValueError:
+            num = None
+        if num is not None and num == num:   # "nan"（pandas 转换产物）不入数值
+            return -num if neg else num
+    text = str(value)
+    m = _GROUPED_NUMBER_RE.search(text) or _NUM_PLAIN_RE.search(text)
+    if m:
+        num = float(m.group().replace(",", "").replace("，", ""))
+        return -num if neg else num
+    return None
 
 
 def _format_json_array(value: object, q: object | None = None) -> str:

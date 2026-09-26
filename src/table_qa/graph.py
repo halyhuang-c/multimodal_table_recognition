@@ -15,7 +15,7 @@ from langgraph.graph import END, START, StateGraph
 from loguru import logger
 from rapidfuzz import fuzz
 
-from table_qa.answer.extract import answer_extract
+from table_qa.answer.extract import answer_extract, value_empty, vision_extract
 from table_qa.answer.formatter import format_answer
 from table_qa.answer.structure import answer_structure, parse_range
 from table_qa.answer.thinking import answer_thinking
@@ -35,6 +35,7 @@ _PENALTY: dict[str, float] = {
     "table_select_low": 0.10,    # 表格匹配置信度低
     "range_fallback_full": 0.10, # 范围解析失败按整表
     "extract_unverified": 0.20,  # 提取值未在表中回查到（幻觉信号）
+    "vision_fallback": 0.10,     # 矩阵取不到值，VLM 看原图直答（无回查，轻度扣分）
     "sandbox_fail_direct": 0.20, # 沙箱失败降级 LLM 直算
     "mask_in_table": 0.10,       # 选中表含不可辨认单元格
     "no_table": 0.40,            # 该文件没识别出任何表
@@ -239,13 +240,23 @@ def build_answer_graph(ctx: PipelineContext):
         if table is None:
             return _no_table_result()
         result = answer_extract(q, table)
+        # 视觉降级：矩阵取不到值（答案在原图不在表格：是否含二维码/
+        # 最左侧表头/卡片字段等，qid=484 等 17 题实测）→ VLM 看原图直答
+        if value_empty(result.get("value")) and state.get("profile") is not None:
+            vision = vision_extract(q, state["profile"], table)
+            if vision is not None:
+                result = vision
         step = TraceStep(step="answer", title="内容提取", data={
             "value": result["value"], "locate": result["locate"],
             "reason": result["reason"], "verified": result["verified"],
         })
-        events = ["extract_unverified"] if not result["verified"] else []
-        if events:
+        if result.get("vision"):
+            events = ["vision_fallback"]
             step.status = "warn"
+        else:
+            events = ["extract_unverified"] if not result["verified"] else []
+            if events:
+                step.status = "warn"
         return {"raw_result": {"kind": "extract", **result}, "events": events,
                 "steps": [step]}
 

@@ -14,7 +14,7 @@ import json
 import re
 from typing import Any
 
-_OPS = ("cell", "cells", "diff", "sum", "count", "subitems", "nonzero",
+_OPS = ("cell", "cells", "diff", "sum", "avg", "count", "subitems", "nonzero",
         "ratio_sum", "const", "seq")
 
 # 表格区块边界（层级）：中文序号(3) > 括号序号(2) > 冒号分组(1)。
@@ -59,6 +59,14 @@ def _find_col(df, needle: str) -> str | None:
     return None
 
 
+def _count_match(cell: str, needle: str) -> bool:
+    """计数匹配三级：精确 → 包含 → 反向包含（qid=859：题干"红色"vs
+    表内"红"——VLM 常合并/丢失单字，反向包含兜底）。"""
+    if not cell or not needle:
+        return False
+    return cell == needle or needle in cell or cell in needle
+
+
 def _is_empty(v) -> bool:
     """空值判定：None/空串/NaN（float 自不等）/字符串'nan'（pandas 转换产物）。"""
     if v is None or v == "":
@@ -92,6 +100,13 @@ def _strip_float_noise(value):
     if isinstance(value, list):
         return [_strip_float_noise(v) for v in value]
     return value
+
+
+def _ref_values(df, refs) -> list[float]:
+    """refs 格子列表转数值（sum/avg 的跨列聚合输入，qid=827）。"""
+    if not refs:
+        raise ValueError("缺 refs")
+    return [float(_cell(df, r)) for r in refs]
 
 
 def _op_subitems(df, item: str) -> list[str]:
@@ -182,6 +197,9 @@ def execute_op(op: dict, df):
         return _strip_float_noise(
             float(_cell(df, op["a"])) - float(_cell(df, op["b"])))
     if kind == "sum":
+        if op.get("refs"):
+            # 跨列格子相加（qid=827："X 的欧洲与亚洲销量合计"= 同行两列）
+            return _strip_float_noise(sum(_ref_values(df, op["refs"])))
         col = _find_col(df, str(op.get("col", "")))
         if col is None:
             raise KeyError(f"定位失败: col={op.get('col')!r}")
@@ -198,6 +216,27 @@ def execute_op(op: dict, df):
         if not nums:
             raise ValueError("求和列无数值")
         return _strip_float_noise(sum(nums))
+    if kind == "avg":
+        # 平均（qid=846：无 avg 时"平均值"退化成 cells 只罗列操作数）
+        if op.get("refs"):
+            vals = _ref_values(df, op["refs"])
+        else:
+            col = _find_col(df, str(op.get("col", "")))
+            if col is None:
+                raise KeyError(f"定位失败: col={op.get('col')!r}")
+            rows = op.get("rows")
+            if rows:
+                idx = [_find_row(df, str(r)) for r in rows]
+                if any(i is None for i in idx):
+                    raise KeyError(f"行定位失败: {op.get('rows')!r}")
+                raw = [df.at[i, col] for i in idx]
+            else:
+                raw = df[col].tolist()
+            vals = [float(v) for v in raw
+                    if not _is_empty(v) and not isinstance(v, str)]
+        if not vals:
+            raise ValueError("平均值无数值")
+        return _strip_float_noise(sum(vals) / len(vals))
     if kind == "ratio_sum":
         # 加权比（Q48：合计计提比例 = Σ坏账准备 / Σ账面余额，比例列
         # 简单相加是语义错误 50+100=150≠57.93）。返回百分比量纲（与表内一致）。
@@ -223,9 +262,20 @@ def execute_op(op: dict, df):
         return round(100.0 * _colsum(op["num_col"]) / den, 2)  # 比例财务惯例2位
     if kind == "count":
         needle = str(op.get("contains", "")).strip()
-        col0 = df.iloc[:, 0].map(lambda v: str(v).strip() if v is not None else "")
-        return int(col0.str.contains(needle, na=False, regex=False).sum()) \
-            if needle else int(len(df))
+        col_name = str(op.get("col", "") or "").strip()
+        if col_name:
+            # 指定列计数（qid=859："有多少红色"在颜色列数匹配格子——
+            # 原实现忽略 col 永远搜首列，颜色在非首列时计成 0）
+            col = _find_col(df, col_name)
+            if col is None:
+                raise KeyError(f"定位失败: col={col_name!r}")
+            series = df[col]
+        else:
+            series = df.iloc[:, 0]
+        cells = [str(v).strip() for v in series.tolist() if not _is_empty(v)]
+        if not needle:
+            return int(len(df))
+        return sum(1 for v in cells if _count_match(v, needle))
     if kind == "subitems":
         return _op_subitems(df, str(op.get("item", "")))
     if kind == "nonzero":

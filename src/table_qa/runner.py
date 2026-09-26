@@ -2,9 +2,9 @@
 
 目录结构（用户只关心 output/）：
 - output/                最终产物，每次运行覆盖更新：
-    result.xlsx          提交文件：id | answer（无置信度）
-    result_debug.xlsx    调试文件：含置信度/分数/事件（show_confidence=true 时生成）
-    cost_report.csv      token 按 phase 分类统计
+    submission.xlsx     提交文件：id | answer（每题一行，无法作答的题填空字符串）
+    result_debug.xlsx   调试文件：含置信度/分数/事件（show_confidence=true 时生成）
+    cost_report.csv     token 按 phase 分类统计
 - runs/work/             中间过程（无需关心）：
     answers/{qid}.json   每题 AnswerRecord（断点续跑依据）
     skipped.csv          题目清单异常行
@@ -99,7 +99,7 @@ class Runner:
                     total_files, total_tables, skipped, annotate)
 
     def run(self, *, limit: int | None = None, only: list[str] | None = None) -> Path:
-        """全量/限量运行。返回 output/result.xlsx 路径（最终产物固定目录）。"""
+        """全量/限量运行。返回 output/submission.xlsx 路径（最终产物固定目录）。"""
         wd = WorkDir(self.s.paths.abs_path(self.s.paths.runs_dir))
         output_dir = self._output_dir()
         questions, skipped = load_questions(self.s)
@@ -127,7 +127,7 @@ class Runner:
                 records = [f.result() for f in futures]
         else:
             records = [self._answer_one_safe(q, profiles, wd) for q in questions]
-        return self._write_outputs(records, output_dir)
+        return self._write_outputs(records, output_dir, skipped)
 
     def _output_dir(self) -> Path:
         out = self.s.paths.abs_path(self.s.paths.output_dir)
@@ -182,7 +182,7 @@ class Runner:
         with logger.contextualize(q=q.id, f=q.file_name):   # 日志归属：哪题/哪个文件
             try:
                 rec = self._answer_one(q, profiles, wd)
-            except Exception as e:  # noqa: BLE001 - 保住 result.xlsx 行完整性
+            except Exception as e:  # noqa: BLE001 - 保住 submission.xlsx 行完整性
                 logger.error("答题异常，输出空框架: {}", e)
                 rec = AnswerRecord(question_id=q.id, value="", confidence="low",
                                    confidence_score=0.2, confidence_events=["runner_error"])
@@ -222,29 +222,43 @@ class Runner:
         return rec
 
     # ------------------------------------------------------------------ 输出
-    def _write_outputs(self, records: list[AnswerRecord], output_dir: Path) -> Path:
+    def _write_outputs(self, records: list[AnswerRecord], output_dir: Path,
+                       skipped: list[dict] | None = None) -> Path:
+        """输出提交文件：每题一行、不删题、id 唯一（官方提交规范）。
+
+        跳过行（文件不存在/question 为空）id 合法且不与已答 id 冲突时，
+        以空字符串补入提交——官方"无法作答的题 answer 填空字符串"；
+        id 为空 / id 重复的行无法补（补了即违反 id 唯一性）。
+        """
         import pandas as pd
 
-        result_path = output_dir / "result.xlsx"
-        pd.DataFrame({
-            "id": [r.question_id for r in records],
-            "answer": [r.value for r in records],
-        }).to_excel(result_path, index=False)
-        logger.info("提交文件: {}", result_path)
+        rows = [(r.question_id, r.value) for r in records]
+        seen = {qid for qid, _ in rows}
+        for s in skipped or []:
+            qid = str((s.get("row") or {}).get("id", "")).strip()
+            if qid and qid not in seen:
+                rows.append((qid, ""))
+                seen.add(qid)
+                logger.info("跳过题补空答案: {} ({})", qid, s.get("reason"))
+
+        submission_path = output_dir / "submission.xlsx"
+        pd.DataFrame(rows, columns=["id", "answer"]).to_excel(submission_path, index=False)
+        logger.info("提交文件: {}（{} 行 = 已答 {} + 补空 {}）",
+                    submission_path, len(rows), len(records), len(rows) - len(records))
 
         if self.s.output.show_confidence:
             debug_path = output_dir / "result_debug.xlsx"
             pd.DataFrame({
-                "id": [r.question_id for r in records],
-                "answer": [r.value for r in records],
-                "confidence": [r.confidence for r in records],
-                "score": [r.confidence_score for r in records],
-                "events": [";".join(r.confidence_events) for r in records],
+                "id": [qid for qid, _ in rows],
+                "answer": [v for _, v in rows],
+                "confidence": [r.confidence for r in records] + [""] * (len(rows) - len(records)),
+                "score": [r.confidence_score for r in records] + [None] * (len(rows) - len(records)),
+                "events": [";".join(r.confidence_events) for r in records] + [None] * (len(rows) - len(records)),
             }).to_excel(debug_path, index=False)
             logger.info("调试文件: {}", debug_path)
 
         self._write_cost_report(output_dir)
-        return result_path
+        return submission_path
 
     def _write_cost_report(self, output_dir: Path) -> None:
         summary = self.llm.usage_summary()

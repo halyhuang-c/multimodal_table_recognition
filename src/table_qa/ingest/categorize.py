@@ -6,6 +6,7 @@ L2 运行时探测（文本密度 / 抽表可行性），不依赖任何预置�
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
 
 from loguru import logger
@@ -15,6 +16,29 @@ from table_qa.schema import FileCategory, FileProfile
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 PDF_EXTS = {".pdf"}
+
+_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+_LATIN_WORD_RE = re.compile(r"[A-Za-z]{2,}")
+
+
+def _text_layer_garbled(text: str, settings: Settings) -> bool:
+    """文本层是否为乱码（字体 ToUnicode 映射损坏的指纹）。
+
+    损坏 PDF 提取出的"文字"全是符号与碎片数字（071-073 实测：符号占比
+    0.71~0.88、CJK 为 0），但字符密度非空，会绕过密度路由被误当数字原生
+    PDF。双条件判定，避免误伤英文表/数字密集表：
+    - 符号（isalnum=False）占非空白字符比例超 garbled_symbol_ratio；
+    - 且 CJK 与拉丁整词字符占比低于 garbled_word_ratio。
+    """
+    chars = [ch for ch in text if not ch.isspace()]
+    n = len(chars)
+    if n < 100:                      # 文本过少：交给密度逻辑路由
+        return False
+    symbol_n = sum(1 for ch in chars if not ch.isalnum())
+    word_n = len(_CJK_RE.findall(text)) + sum(
+        len(m) for m in _LATIN_WORD_RE.findall(text))
+    return (symbol_n / n > settings.pdf.garbled_symbol_ratio
+            and word_n / n < settings.pdf.garbled_word_ratio)
 
 
 def file_sha(path: Path) -> str:
@@ -41,8 +65,13 @@ def _detect_category(path: Path, settings: Settings) -> tuple[FileCategory, str]
 
         with pdfplumber.open(path) as pdf:
             pages = pdf.pages
-            density = sum(len(p.extract_text() or "") for p in pages) / max(len(pages), 1)
+            texts = [p.extract_text() or "" for p in pages]
+            density = sum(len(t) for t in texts) / max(len(pages), 1)
         if density > settings.pdf.text_density_threshold:
+            if _text_layer_garbled("\n".join(texts), settings):
+                # 密度非空但文本层是符号乱码（ToUnicode 损坏）：pdfplumber 抽表
+                # 只会得到乱码，按扫描件处理走 VLM（071-073 实测教训）
+                return "D", f"garbled_text_layer({density:.0f}c/p)"
             return "B", f"digital_pdf({density:.0f}c/p)"   # 数字 PDF 默认 B，抽表成功后细化
         return "D", f"scanned_pdf({density:.0f}c/p)"
     return "C", "unknown"

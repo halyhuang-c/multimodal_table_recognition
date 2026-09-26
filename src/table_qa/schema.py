@@ -32,6 +32,10 @@ class Question(BaseModel):
     question: str
     table_hint: str | None = None
     answer_format: AnswerFormat = "string"
+    # answer_format 列的原始文本（官方语义是"对答案格式的补充说明"，可能是
+    # 自然语言如"百分比，保留一位小数"）：规范化枚举之外的信息保留于此，
+    # 供精度/单位解析与答题 prompt 使用
+    format_note: str = ""
     # 修复标记（审计用）
     repaired: list[str] = Field(default_factory=list)
 

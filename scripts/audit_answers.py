@@ -34,7 +34,10 @@ MASK_PAT = re.compile(r"\[MASK\]|\[UNSURE|无法读取|数据缺失")
 
 
 def main() -> None:
-    res = pd.read_excel(ROOT / "output" / "result.xlsx", keep_default_na=False)
+    res_path = ROOT / "output" / "submission.xlsx"
+    if not res_path.exists():
+        res_path = ROOT / "output" / "result.xlsx"   # 旧文件名兼容
+    res = pd.read_excel(res_path, keep_default_na=False)
     dbg = pd.read_excel(ROOT / "output" / "result_debug.xlsx",
                         keep_default_na=False)
     qdf = pd.read_excel(ROOT / "data" / "tests.xlsx")

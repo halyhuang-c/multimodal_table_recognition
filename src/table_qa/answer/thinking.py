@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 import re
 
+import numpy as np
+
 from loguru import logger
 
 from table_qa.answer.ops import execute_op, parse_op
@@ -64,9 +66,17 @@ def _strip_fence(raw: str) -> str:
 
 
 def _strip_float_noise(value):
-    """浮点二进制尾差清理：按 12 位有效数字规整，财务精度（≤2 位小数）无损。"""
+    """浮点二进制尾差清理：按 12 位有效数字规整，财务精度（≤2 位小数）无损。
+
+    numpy 标量同转 Python 原生类型：沙箱 pandas 产物 np.int64 非 int 子类，
+    穿透会使 AnswerRecord/JSON 序列化崩溃（qid=198）。
+    """
     if isinstance(value, float):
         return float(f"{value:.12g}")
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(f"{float(value):.12g}")
     if isinstance(value, list):
         return [_strip_float_noise(v) for v in value]
     return value
@@ -89,7 +99,8 @@ def answer_thinking(question: Question, table: NormalizedTable) -> dict:
     value 为原始数值（格式化交给 formatter）；precision 为题干小数位要求。
     code 字段：op 路径存 op JSON，沙箱路径存 python 源码（trace 可区分）。
     """
-    m = _PRECISION_PAT.search(question.question)
+    m = (_PRECISION_PAT.search(question.question)
+         or (_PRECISION_PAT.search(question.format_note) if question.format_note else None))
     precision = _CN_NUM.get(m.group(1)) if m else (int(m.group(1)) if m else None)
 
     df = _build_df(table)
@@ -120,10 +131,14 @@ def answer_thinking(question: Question, table: NormalizedTable) -> dict:
             continue                      # 重试生成；两轮皆空走直算
         try:
             result = run_sandbox(code, df)
-            # None/NaN 视为失败（qid=14 空代码静默通过 / qid=48 nan 穿透）；
-            # 空列表采信——沙箱看过全量行名，[] 是明确判断（qid=19 无子项）
+            # None/NaN 视为失败（qid=14 空代码静默通过 / qid=48 nan 穿透）
             if result is None or (isinstance(result, float) and result != result):
                 raise RuntimeError("沙箱返回 None/NaN（空代码或未产出 result）")
+            # 空列表不再直接采信（qid=42：换行把类别拆成两行，代码扫描为 []，
+            # 但表内确有分类）——降级 thinking_direct 终审；真无子项时 LLM 看
+            # 全表同样会给 []（qid=19 语义不变）
+            if isinstance(result, list) and not result:
+                raise RuntimeError("沙箱枚举结果为空，降级直算终审")
             return {"value": _strip_float_noise(result), "code": code,
                     "exec_ok": True, "precision": precision}
         except (RuntimeError, SandboxViolation, ValueError) as e:
@@ -139,6 +154,8 @@ def answer_thinking(question: Question, table: NormalizedTable) -> dict:
         f"问题：{question.question}\n"
         f"要求：数值计算给出最终数值；列举/枚举类问题（如'包括哪几部分''有哪些'）"
         f"按表格内容列出各项，输出 JSON 数组（如 [\"a\",\"b\"]）；"
+        f"枚举分类时，带'其中：'前缀的是下级子项、'合计/小计/总计'是汇总行，"
+        f"均不计入分类（qid=42 实测混入子项）；"
         f"复合题（一题多问）按问序逐项作答输出 JSON 数组；只输出答案本身。",
         phase="thinking_direct", question_id=question.id)
     return {"value": _parse_direct(raw, question.question), "code": code,

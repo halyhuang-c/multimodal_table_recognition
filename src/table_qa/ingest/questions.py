@@ -49,6 +49,26 @@ def _fix_question_type(raw: object, question: str, answer_format: str) -> Questi
     return "extract"
 
 
+def _normalize_answer_format(fmt_raw: str) -> tuple[str, bool]:
+    """answer_format 列规范化为四枚举之一。返回 (枚举, 是否经过推断)。
+
+    官方将该列定义为"对答案格式的补充说明"（自然语言），样本数据恰好是
+    枚举值。兼容两形态：枚举直用；自然语言按关键词推断；原文保留在
+    Question.format_note（精度/单位信息不丢失）。
+    """
+    if fmt_raw in _VALID_FORMATS:
+        return fmt_raw, False
+    text = fmt_raw.lower()
+    # 数组判定在前："JSON数组" 应归 json_array 而非 json
+    if re.search(r"数组|列表|多个值|多值|多个结果|逐一列出|按顺序列出", text):
+        return "json_array", True
+    if re.search(r"json|结构", text):
+        return "json", True
+    if re.search(r"数值|数字|金额|百分比|小数|整数|数量", text):
+        return "number", True
+    return "string", True
+
+
 def load_questions(settings: Settings) -> tuple[list[Question], list[dict]]:
     """读取 tests.xlsx → (合法题目列表, 跳过行明细)。绝不因单行异常中断全局。"""
     xlsx = settings.paths.abs_path(settings.paths.tests_xlsx)
@@ -92,11 +112,12 @@ def load_questions(settings: Settings) -> tuple[list[Question], list[dict]]:
             skipped.append({"excel_row": row_idx + 2, "reason": "question 为空", "row": row.to_dict()})
             continue
 
-        # 4) answer_format 枚举校验
-        fmt = str(row.get("answer_format", "")).strip()
-        if fmt not in _VALID_FORMATS:
-            issues.append(f"answer_format 非法: {fmt} -> string")
-            fmt = "string"
+        # 4) answer_format 规范化：官方语义是"对答案格式的补充说明"，
+        #    可能是自然语言（如"百分比，保留一位小数"），兼容枚举与文本两种形态
+        fmt_raw = str(row.get("answer_format", "")).strip()
+        fmt, inferred = _normalize_answer_format(fmt_raw)
+        if inferred:
+            issues.append(f"answer_format 推断: {fmt_raw or '(空)'} -> {fmt}")
 
         hint = str(row.get("table_hint", "")).strip() or None
 
@@ -107,6 +128,7 @@ def load_questions(settings: Settings) -> tuple[list[Question], list[dict]]:
             question=question_text,
             table_hint=hint,
             answer_format=fmt,  # type: ignore[arg-type]
+            format_note=fmt_raw if fmt_raw != fmt else "",
             repaired=issues,
         ))
         if issues:

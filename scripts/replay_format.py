@@ -105,10 +105,12 @@ def main() -> None:
         print("dry-run：未写文件")
         return
 
-    # 回填 result.xlsx / result_debug.xlsx
+    # 回填 submission.xlsx / result_debug.xlsx
     import pandas as pd
 
-    res_path = ROOT / "output" / "result.xlsx"
+    res_path = ROOT / "output" / "submission.xlsx"
+    if not res_path.exists():
+        res_path = ROOT / "output" / "result.xlsx"   # 旧文件名兼容
     res = pd.read_excel(res_path)
     for qid, rec in records.items():
         res.loc[res["id"].astype(str) == qid, "answer"] = rec.value
@@ -121,7 +123,7 @@ def main() -> None:
             mask = dbg["id"].astype(str) == qid
             dbg.loc[mask, "answer"] = rec.value
         dbg.to_excel(dbg_path, index=False)
-    print(f"已回填 result.xlsx / result_debug.xlsx（{len(records)} 题）")
+    print(f"已回填 {res_path.name} / result_debug.xlsx（{len(records)} 题）")
 
 
 if __name__ == "__main__":

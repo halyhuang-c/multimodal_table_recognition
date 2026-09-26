@@ -11,7 +11,10 @@ ROOT = Path(__file__).resolve().parents[1]
 BAD = {"", "none", "null", "nan"}
 COP_OUT = re.compile(r"数据未提供|数据缺失|无法计算|未提供|无法确定|无法判断|无法读取")
 
-res = pd.read_excel(ROOT / "output" / "result.xlsx", keep_default_na=False)
+res_path = ROOT / "output" / "submission.xlsx"
+if not res_path.exists():
+    res_path = ROOT / "output" / "result.xlsx"   # 旧文件名兼容
+res = pd.read_excel(res_path, keep_default_na=False)
 qdf = pd.read_excel(ROOT / "data" / "tests.xlsx")
 qdf["key"] = qdf["id"].astype(str)
 qmap = dict(zip(qdf["key"], qdf["question_type"].astype(str)))

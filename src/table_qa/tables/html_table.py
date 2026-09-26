@@ -123,54 +123,35 @@ def _span(val: str | None, default: int) -> int:
         return default
 
 
-def slice_grid(grid: list[list[Cell]], row_range: tuple[int, int] | None,
-               col_range: tuple[int, int] | None) -> list[list[Cell]]:
-    """按行列范围切片（structure 局部题）。切断的合并格按边界截断跨度。"""
-    r0, r1 = row_range or (0, max(len(grid) - 1, 0))
-    max_c = max((len(r) for r in grid), default=0)
-    c0, c1 = col_range or (0, max(max_c - 1, 0))
-    r0, r1 = max(0, r0), min(r1, len(grid) - 1)
-    c0, c1 = max(0, c0), min(c1, max_c - 1)
-    if r1 < r0 or c1 < c0:
-        return []
+def grid_to_structure_json(grid: list[list[Cell]],
+                           row_range: tuple[int, int] | None = None,
+                           col_range: tuple[int, int] | None = None) -> dict:
+    """展开矩阵 → structure 题官方 JSON（赛题说明 4.1）。
 
-    out: list[list[Cell]] = []
-    for r in range(r0, r1 + 1):
-        row_out: list[Cell] = []
-        for c in range(c0, c1 + 1):
-            src = grid[r][c] if c < len(grid[r]) else Cell(text="", row=r, col=c)
-            rs = min(src.row + src.rowspan - 1, r1) - r + 1   # 截断跨度
-            cs = min(src.col + src.colspan - 1, c1) - c + 1
-            if src.is_anchor and (src.row, src.col) == (r, c):
-                row_out.append(src.model_copy(update={"rowspan": rs, "colspan": cs}))
-            elif src.is_anchor:
-                # 锚点在切片外但跨度进入切片：降级为普通格（不再表达合并）
-                row_out.append(Cell(text=src.text, row=r, col=c, rowspan=rs, colspan=cs,
-                                    is_anchor=(src.row >= r0 and src.col >= c0)))
-            else:
-                row_out.append(Cell(text=src.text, row=r - r0, col=c - c0,
-                                    rowspan=min(rs, 1), colspan=min(cs, 1), is_anchor=False))
-        out.append(row_out)
-
-    # 重排行列索引到切片坐标系
-    for r, row in enumerate(out):
-        for c, cell in enumerate(row):
-            if cell.is_anchor:
-                cell.row, cell.col = r, c
-    return out
-
-
-def grid_to_structure_json(grid: list[list[Cell]]) -> dict:
-    """展开矩阵 → structure 题 JSON（设计文档 §7 自设计 schema，adapter 可切换）。"""
+    - row_count / col_count 始终为**完整表格**的逻辑行列数；
+    - 局部恢复按“行集 ∪ 列集”过滤：锚点格左上角落在行区间**或**列区间即输出
+      （如“前1行和前1列”= 第一行的全部格 + 第一列的全部格）；
+    - row / col / rowspan / colspan 一律保持全表原值（不重排、不截断）；
+    - 只输出锚点格，被合并覆盖的位置不输出占位格。
+    """
     anchors: list[dict] = []
     for row in grid:
         for cell in row:
-            if cell.is_anchor:
-                anchors.append({
-                    "row": cell.row, "col": cell.col,
-                    "rowspan": cell.rowspan, "colspan": cell.colspan,
-                    "text": cell.text,
-                })
+            if not cell.is_anchor:
+                continue
+            match_rows = row_range is None or row_range[0] <= cell.row <= row_range[1]
+            match_cols = col_range is None or col_range[0] <= cell.col <= col_range[1]
+            if row_range is not None and col_range is not None:
+                keep = match_rows or match_cols   # 行集 ∪ 列集
+            else:
+                keep = match_rows and match_cols  # 单约束（另一维恒真）
+            if not keep:
+                continue
+            anchors.append({
+                "row": cell.row, "col": cell.col,
+                "rowspan": cell.rowspan, "colspan": cell.colspan,
+                "text": cell.text,
+            })
     return {
         "row_count": len(grid),
         "col_count": max((len(r) for r in grid), default=0),

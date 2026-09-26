@@ -20,7 +20,10 @@ OUT = ROOT / "postcheck" / "_sample.json"
 def main() -> None:
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 8
     seed = int(sys.argv[2]) if len(sys.argv) > 2 else 42
-    res = pd.read_excel(ROOT / "output" / "result.xlsx", keep_default_na=False)
+    res_path = ROOT / "output" / "submission.xlsx"
+    if not res_path.exists():
+        res_path = ROOT / "output" / "result.xlsx"   # 旧文件名兼容
+    res = pd.read_excel(res_path, keep_default_na=False)
     dbg = pd.read_excel(ROOT / "output" / "result_debug.xlsx", keep_default_na=False)
     dbg["key"] = dbg["id"].astype(str)
     dmap = dbg.set_index("key")

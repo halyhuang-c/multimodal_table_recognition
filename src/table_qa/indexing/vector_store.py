@@ -197,6 +197,21 @@ class TableVectorStore:
         logger.info("向量入库: {} 张表（库内共 {} chunk）", len(tables), total)
         return len(tables)
 
+    def delete_file(self, file_id: str) -> int:
+        """删除某文件全部 chunk（重新识别前清理）。
+
+        VLM 与 pdfplumber 对同一文件识别出的表数量/索引可能不同，
+        upsert 幂等无法覆盖消失的旧 chunk，必须显式删除。返回删除条数。"""
+        with self._write_lock:
+            ids = (self._collection.get(where={"file_id": file_id}, include=[])
+                   .get("ids") or [])
+            if ids:
+                self._collection.delete(ids=ids)
+        if ids:
+            logger.info("向量删除: file_id={} 清除 {} chunk（库内剩 {}）",
+                        file_id, len(ids), self._collection.count())
+        return len(ids)
+
     # ------------------------------------------------------------------
     # 检索
     # ------------------------------------------------------------------

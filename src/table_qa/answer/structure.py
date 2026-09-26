@@ -1,4 +1,4 @@
-"""structure 题：范围解析（正则优先，LLM 兜底）+ 确定性切片 + 结构 JSON。"""
+"""structure 题：范围解析（正则优先，LLM 兜底）+ 确定性过滤 + 官方结构 JSON。"""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from loguru import logger
 from table_qa.llm_client import LLMError, get_llm_hub
 from table_qa.prompts import get_prompt_manager
 from table_qa.schema import NormalizedTable, ParsedRange, Question
-from table_qa.tables.html_table import grid_to_structure_json, slice_grid
+from table_qa.tables.html_table import grid_to_structure_json
 
 # 正则白名单：覆盖常见中文范围表述（命中即免 LLM 调用，省 token）
 _PATTERNS = [
@@ -63,13 +63,15 @@ def parse_range(question: Question) -> tuple[ParsedRange, str]:
             if n is not None:
                 col = (0, n - 1)
         elif kind == "row1" and row is None:
+            # “第N行”指单独第 N 行（0 基即 N-1），不是前 N 行
             n = _cn_to_int(m.group(1))
             if n is not None:
-                row = (0, n - 1)
+                row = (n - 1, n - 1)
         elif kind == "col1" and col is None:
+            # “第N列”指单独第 N 列
             n = _cn_to_int(m.group(1))
             if n is not None:
-                col = (0, n - 1)
+                col = (n - 1, n - 1)
         elif kind == "header" and row is None:
             row = (0, 1)
 
@@ -107,7 +109,11 @@ def _tuple_or_none(v: object) -> tuple[int, int] | None:
 
 def answer_structure(question: Question, table: NormalizedTable,
                      rng: ParsedRange) -> tuple[dict, bool]:
-    """structure 答题：切片 → 结构 JSON。返回 (json_dict, 是否局部)。"""
+    """structure 答题：在全表上按范围过滤 → 官方结构 JSON。返回 (json_dict, 是否局部)。
+
+    官方规范（赛题说明 4.1）：row_count/col_count 与 row/col/rowspan/colspan
+    均按完整表格输出，局部恢复只裁剪 cells（“行集 ∪ 列集”的锚点格）。
+    """
     is_partial = bool(rng.row_range or rng.col_range)
-    grid = slice_grid(table.grid, rng.row_range, rng.col_range)
-    return grid_to_structure_json(grid), is_partial
+    js = grid_to_structure_json(table.grid, rng.row_range, rng.col_range)
+    return js, is_partial

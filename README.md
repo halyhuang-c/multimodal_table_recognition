@@ -2,7 +2,7 @@
 
 天池大赛参赛项目：读取题目清单 `tests.xlsx`（908 题，structure / extract / thinking 三类题型），
 对每道题在其对应的 PDF / 图片文件中完成**表格结构恢复、内容提取或推理计算**，
-按官方模板（`id | answer` 两列）生成可自动评分的提交文件。
+按官方模板（`id | answer` 两列，每题一行、无法作答填空字符串）生成提交文件 `submission.xlsx`。
 
 > 设计文档：[docs/design.md](docs/design.md)（含完整架构决策与数据勘察结论）
 
@@ -20,11 +20,11 @@ files/ ─► 分类路由 ┬─ A/B 类数字PDF ─► pdfplumber 确定性�
               识别缓存（跨 run 持久）─► ChromaDB RAG 入库（元数据+业务注释+表格HTML）
                                                           │
               答题（LangGraph 条件路由）：
-                structure ─► 范围解析 ─► 确定性切片 ─► 结构 JSON
+                structure ─► 范围解析 ─► 行集∪列集过滤 ─► 官方结构 JSON（全表尺寸/坐标/跨度不截断）
                 extract   ─► LLM 定位取值 ─► 矩阵回查（防幻觉）
                 thinking  ─► LLM 生成 pandas 代码 ─► AST 沙箱确定性执行
                                                           │
-              格式化（四枚举序列化+精度指令）─► 置信度打分 ─► result.xlsx
+              格式化（answer_format 四枚举+自然语言补充说明）─► 置信度打分 ─► submission.xlsx
 ```
 
 **关键设计**：
@@ -37,7 +37,7 @@ files/ ─► 分类路由 ┬─ A/B 类数字PDF ─► pdfplumber 确定性�
 | 防幻觉 | extract 取值必须在表格矩阵中回查到，失败记 `extract_unverified` 事件并扣置信度 |
 | 置信度 | 初始 1.0 按事件扣分（RAG 未命中 -0.1 / 提取未验证 -0.2 / 沙箱降级 -0.2 ...），`>=0.8 high / >=0.5 medium / <0.5 low`；调试界面高亮低分题，提交文件不含置信度 |
 | 断点续跑 | 每题答案落盘 `runs/{ts}/answers/{qid}.json`，重跑自动跳过已完成题；识别结果按文件内容 sha1 缓存（010≡056 只识别一次） |
-| 答案永不为空 | 降级链末端输出 schema 合法空框架（structure 空 1x1 表 / number 0），保证可提交 |
+| 提交完整性 | 官方规范：每题一行不删题、id 唯一；无法作答的题 answer 填空字符串（number 题 0 期望命中率更高）；跳过行（文件不存在等）id 合法时补空答案入提交 |
 
 ## 2. 环境与安装
 
@@ -134,7 +134,7 @@ table-qa run
 table-qa run --limit 10
 table-qa run --only 1,2,3
 
-# 提交模式：只生成 result.xlsx（id|answer 两列），不含置信度调试文件
+# 提交模式：只生成 submission.xlsx（id|answer 两列），不含置信度调试文件
 table-qa run --submit
 
 # 详细日志
@@ -152,7 +152,7 @@ table-qa run --limit 5 -v
 
 | 目录/文件 | 说明 |
 |---|---|
-| `output/result.xlsx` | **最终提交文件**（id \| answer，每次运行覆盖更新） |
+| `output/submission.xlsx` | **最终提交文件**（id \| answer，每题一行，无法作答填空字符串；每次运行覆盖更新） |
 | `output/result_debug.xlsx` | 调试文件（含 confidence / score / 事件，`--submit` 时不生成） |
 | `output/cost_report.csv` | token 按 phase 分类统计（recognize/extract/thinking_code/...） |
 | `runs/work/answers/{qid}.json` | 每题完整 trace（断点续跑依据，无需关心） |
@@ -194,7 +194,7 @@ prompt 内容指纹参与识别缓存 key——改 prompt 自动失效对应缓�
 multimodal_table_recognition/
 ├── configs/config.yaml            # 全局配置
 ├── prompts/                       # prompt 模板（YAML）
-├── output/                        # ★ 最终产物（result.xlsx 等，每次运行覆盖更新）
+├── output/                        # ★ 最终产物（submission.xlsx 等，每次运行覆盖更新）
 ├── logs/                          # 集中式滚动日志（按天 + 20MB 滚动，保留 30 天）
 ├── data/                          # 纯官方输入（真实赛题时整体替换）
 │   ├── tests.xlsx / submit-template.xlsx
@@ -216,14 +216,15 @@ multimodal_table_recognition/
 ├── cache/                         # 识别缓存（跨 run 持久，可整体删除重建）
 ├── vectorstore/                   # ChromaDB（可整体删除重建）
 ├── runs/work/                     # 中间过程（answers trace，无需关心）
-└── tests/                         # 单元测试（20 个用例）
+└── tests/                         # 单元测试（49 个用例）
 ```
 
 ## 9. 测试
 
 ```powershell
 .venv\Scripts\python -m pytest tests -q
-# 覆盖：rowspan/colspan 展开、切片截断、结构 JSON、数值清洗、
+# 覆盖：rowspan/colspan 展开、结构 JSON（行集∪列集过滤、全表尺寸/坐标不截断）、
+#       数值清洗（千分位/前导零/科学计数法）、空字符串语义、answer_format 兼容、
 #       DataFrame 转换、沙箱安全（禁 import/open/dunder）与执行
 ```
 

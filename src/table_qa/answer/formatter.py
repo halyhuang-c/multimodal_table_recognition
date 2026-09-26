@@ -1,9 +1,11 @@
 """答案格式化：answer_format 四枚举序列化 + 题干精度指令。
 
-规则（设计文档 §5.5.2）：
+规则（赛题说明 §答案规范）：
 - number：题干"保留N位小数"优先；整数不带小数、小数去尾零
 - string：全角转半角、trim、连续空白折叠
 - json_array / json：JSON 字符串（ensure_ascii=False）
+- 数组答案中的空值填空字符串（不是 null）
+- 数字答案去千分位逗号；数组中纯数字元素以数值输出（官方示例 [1,"销售额"]）
 """
 
 from __future__ import annotations
@@ -11,12 +13,14 @@ from __future__ import annotations
 import json
 import re
 
+import numpy as np
+
 from table_qa.tables.dataframe import to_halfwidth
 
 
 def format_answer(value: object, answer_format: str, precision: int | None = None,
                   q: object | None = None) -> str:
-    """按 answer_format 序列化最终答案（写入 result.xlsx 的字符串）。
+    """按 answer_format 序列化最终答案（写入 submission.xlsx 的字符串）。
 
     q（Question 对象）用于复合题判定：复合题（一题多问按字段顺序）保留空占位
     防元素错位；枚举题（"列出所有X"）过滤空元素防空串混入。
@@ -45,9 +49,12 @@ def _format_number(value: object, precision: int | None) -> str:
         return "0"   # number 题答案永不为空：无数值残留（"未找到"/"--"）归一 0
     if precision is not None:
         return f"{num:.{precision}f}"
-    if num.is_integer() and abs(num) < 1e15:
+    if num.is_integer():
         return str(int(num))
-    return repr(num).rstrip("0").rstrip(".") if "." in repr(num) else str(num)
+    out = repr(num)
+    if "e" in out or "E" in out:   # 极小/极大浮点避免科学计数法泄漏
+        out = f"{num:.10f}"
+    return out.rstrip("0").rstrip(".") if "." in out else out
 
 
 # number 清洗符号：货币（含全角＄￥）/百分号（含全角％）/约数（~≈约）/空白
@@ -96,9 +103,20 @@ def _format_json_array(value: object, q: object | None = None) -> str:
 
 
 def _json_safe(v: object) -> object:
-    """NaN → None：json.dumps 会输出字面量 NaN（非法 JSON），必须转 null（qid=268）。"""
-    if isinstance(v, float) and v != v:
-        return None
+    """数组元素归一（官方规范）：None / NaN → 空字符串（不得输出 null）；
+    整数值浮点 → int（官方示例 [1,"销售额"] 数字不带引号也不带 .0）。
+
+    numpy 标量先转 Python 原生类型：np.int64 非 int 子类，直接 json.dumps
+    抛 "Object of type int64 is not JSON serializable"（qid=198）。
+    """
+    if isinstance(v, np.integer):
+        v = int(v)
+    elif isinstance(v, np.floating):
+        v = float(v)
+    if v is None or (isinstance(v, float) and v != v):
+        return ""
+    if isinstance(v, float) and v.is_integer():
+        return int(v)
     return v
 
 
@@ -186,4 +204,29 @@ def _clean_item(v: object) -> object:
     if not isinstance(v, str):
         return v
     s = to_halfwidth(v).strip()
-    return re.sub(r"[ \t]+", " ", s)
+    s = re.sub(r"[ \t]+", " ", s)
+    num = _maybe_number(s)
+    return num if num is not None else s
+
+
+# 纯数字串（去千分位后可转数值）：官方示例 [1,"销售额","产品销售表"] 中数字不带引号
+_PLAIN_NUM_RE = re.compile(r"-?\d+(?:\.\d+)?")
+
+
+def _maybe_number(s: str) -> int | float | None:
+    """纯数字字符串（可含千分位逗号）归一为数值；其余（前导零编号、含
+    单位/百分号/文本）保持字符串。返回 None 表示不是数字。"""
+    t = s.replace("，", ",").strip()
+    if not (_GROUPED_NUMBER_RE.fullmatch(t) or _PLAIN_NUM_RE.fullmatch(t)):
+        return None
+    t2 = t.replace(",", "")
+    try:
+        f = float(t2)
+    except ValueError:
+        return None
+    if f.is_integer():
+        digits = t2.lstrip("-").split(".")[0]
+        if len(digits) > 1 and digits[0] == "0":
+            return None   # "01" 这类编号不是数字 1
+        return int(f)
+    return f

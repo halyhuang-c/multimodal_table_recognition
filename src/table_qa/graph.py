@@ -283,7 +283,7 @@ def build_answer_graph(ctx: PipelineContext):
         raw = state.get("raw_result") or {"kind": "empty", "value": _empty_value(q.answer_format)}
         value = format_answer(raw.get("value"), q.answer_format,
                               state.get("precision"), q)
-        # 空值兜底：答案永不为空（schema 合法空框架）；防御非 str 中间值
+        # 空值兜底：官方"无法作答填空字符串"（number 例外填 0）；防御非 str 中间值
         if not str(value).strip():
             value = _empty_value(q.answer_format)
         events = list(state.get("events", []))
@@ -324,15 +324,21 @@ def build_answer_graph(ctx: PipelineContext):
 
 
 def _retrieval_rank(table: NormalizedTable, hits: list[dict]) -> float:
-    """表在 RAG 命中中的排名分（page 与表名同时命中得高分）。"""
+    """表在 RAG 命中中的排名分（page 与表名同时命中得高分）。
+
+    采用含 rerank_bonus 的调整分：仅按原始相似度时，073.pdf
+    表2续(0.6582) 与 表3续(0.6583) 几乎相等，显式点名信号被淹没
+    （qid=702/703 实测选反表）。
+    """
     best = 0.0
     for h in hits:
         meta = h["metadata"]
         if meta.get("page") == table.page:
-            best = max(best, h["similarity"])
+            score = h["similarity"] + h.get("rerank_bonus", 0)
             name = meta.get("table_name", "")
             if name and table.table_name and fuzz.ratio(name, table.table_name) > 70:
-                best = max(best, h["similarity"] + 0.2)
+                score += 0.2
+            best = max(best, score)
     return best
 
 
@@ -371,6 +377,12 @@ def _select_table(tables: list[NormalizedTable], q: Question,
 
     def score(t: NormalizedTable) -> float:
         s = 0.0
+        # 题干显式点名：问题中"…的"X（续）"中…"是确定性选表信号，
+        # 强于内容相关性（qid=702/703：问表2续却被表3续截胡）
+        if t.table_name:
+            cn, cq = _compact(t.table_name), _compact(q.question)
+            if len(cn) >= 3 and cn in cq:
+                s += 0.5
         if hint and t.table_name:
             s += 0.5 * fuzz.partial_ratio(hint, t.table_name) / 100
         elif hint:
@@ -392,6 +404,12 @@ def _select_table(tables: list[NormalizedTable], q: Question,
     return ranked[0], score(ranked[0])
 
 
+def _compact(s: str) -> str:
+    """压缩：去空白与各类引号（题干用引号包裹表名，表名内部可能含空格）。"""
+    import re
+    return re.sub(r"[\s\u3000\"'“”‘’「」『』]", "", s)
+
+
 def _tokenize(text: str) -> set[str]:
     """简单中文分词：2-gram + 英文/数字词。"""
     import re
@@ -408,13 +426,15 @@ def _confidence_score(events: list[str]) -> float:
 
 
 def _empty_value(answer_format: str) -> str:
-    """schema 合法空框架（答案永不为空原则）。"""
+    """官方规范：无法作答的题 answer 填空字符串。
+
+    例外：number 保留 "0"——评分是对错二值，空串必错，
+    "0" 是唯一有非零概率命中的数字答案；其余格式空串
+    与任何 schema 框架的期望正确率相同（必错），按官方
+    规范直接填空串。
+    """
     if answer_format == "number":
         return "0"
-    if answer_format == "json_array":
-        return "[]"
-    if answer_format == "json":
-        return '{"row_count": 1, "col_count": 1, "cells": [{"row": 0, "col": 0, "rowspan": 1, "colspan": 1, "text": ""}]}'
     return ""
 
 

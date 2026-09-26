@@ -25,7 +25,15 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 from table_qa.config import Settings, get_settings
 from table_qa.schema import UsageRecord
 
-_TIMEOUT = (60, 180)  # (连接, 读取) 秒——视觉模型整页识别耗时较长
+_TIMEOUT_TEXT = (60, 600)   # (连接, 读取) 秒——文本/embedding
+                            # thinking_op/code 复杂 prompt 实测需 240~320s
+                            # （qid=857 探针 2026-09-26），180s 必超时；
+                            # temperature=0 重试结果相同，5 次全灭
+_TEXT_EXTRA_BODY = {"enable_thinking": False}  # 实测：关闭后 op 1.2s（vs 319.5s）、
+                            # code 7.2s（vs 241.7s），结构化输出质量同等或更准。
+                            # 必须走 extra_body：model_kwargs 直传被网关拒绝（实测）
+_TIMEOUT_VISION = (60, 600)  # 视觉：密集整页大表实测 qwen3.8-max 需 318s
+                              # （071 钛合金 25×39 单发实测 2026-09-26），留余量
 _EMBED_BATCH_SIZE = 20  # DashScope embedding 单次 input 上限（超限 400 InvalidParameter）
 
 
@@ -44,8 +52,9 @@ class LLMHub:
                 "DASHSCOPE_API_KEY 未配置：请在项目根目录 .env 中填写，"
                 "或设置环境变量后重试（参考 .env.example）"
             )
-        self._text = self._build_client(cfg.answer_model, settings)
-        self._vision = self._build_client(cfg.recognition_model, settings)
+        self._text = self._build_client(cfg.answer_model, settings, _TIMEOUT_TEXT,
+                                        extra_body=_TEXT_EXTRA_BODY)
+        self._vision = self._build_client(cfg.recognition_model, settings, _TIMEOUT_VISION)
         # check_embedding_ctx_length=False：规避兼容网关的分词预处理差异（实测经验）
         # embedder 恒走通用通道（embedding 不在 Token Plan 白名单）
         self._embedder = OpenAIEmbeddings(
@@ -53,7 +62,7 @@ class LLMHub:
             api_key=settings.api_key,
             base_url=cfg.base_url,
             check_embedding_ctx_length=False,
-            timeout=_TIMEOUT,
+            timeout=(60, 180),
         )
         self._sem_text = threading.Semaphore(cfg.text_concurrency)
         self._sem_vision = threading.Semaphore(cfg.vision_concurrency)
@@ -165,13 +174,15 @@ class LLMHub:
     # 内部
     # ------------------------------------------------------------------
 
-    def _build_client(self, model: str, settings: Settings) -> ChatOpenAI:
+    def _build_client(self, model: str, settings: Settings,
+                      timeout: tuple[int, int],
+                      extra_body: dict | None = None) -> ChatOpenAI:
         """按 channel 配置构建客户端，实现通道切换：
 
         - auto       模型命中 token_plan.models 白名单且 Key 已配置 → 套餐通道
         - token_plan 主力模型全走套餐（Key 缺失时警告并回落通用）
         - general    全走通用通道
-        embedding 恒走通用通道（不在套餐白名单）。
+        embedding 恒走通用通道（不在套餐白名单）。timeout 按文本/视觉区分。
         """
         cfg = settings.dashscope
         tp_key = settings.token_plan_key
@@ -195,7 +206,8 @@ class LLMHub:
             base_url=base_url,
             temperature=cfg.temperature,
             max_tokens=cfg.max_tokens,
-            timeout=_TIMEOUT,
+            timeout=timeout,
+            extra_body=extra_body or {},
         )
 
     def _retry_policy(self):

@@ -4,8 +4,8 @@
     .venv\\Scripts\\python postcheck\\gen_quality_report.py
 
 数据源:
-    output/result.xlsx        提交口径答案
-    output/result_debug.xlsx  置信度/得分/事件链
+    output/submission.xlsx     提交口径答案（旧名 result.xlsx 自动兼容）
+    output/result_debug.xlsx   置信度/得分/事件链
     configs/config.yaml 定位的 tests.xlsx（题目元信息）
 
 输出:
@@ -75,7 +75,10 @@ def _load_rows() -> list[dict]:
     qs, _ = load_questions(settings)
     qmap = {q.id: q for q in qs}
 
-    res = pd.read_excel(OUT_DIR / "result.xlsx", keep_default_na=False)
+    res_path = OUT_DIR / "submission.xlsx"
+    if not res_path.exists():
+        res_path = OUT_DIR / "result.xlsx"   # 旧文件名兼容
+    res = pd.read_excel(res_path, keep_default_na=False)
     dbg = pd.read_excel(OUT_DIR / "result_debug.xlsx", keep_default_na=False)
     res["key"] = res["id"].map(lambda i: str(int(i)))
     dbg["key"] = dbg["id"].map(lambda i: str(int(i)))
@@ -298,7 +301,7 @@ th{{background:#f8fafc;position:sticky;top:0}}
 footer{{margin-top:36px;color:#94a3b8;font-size:12px}}
 </style></head><body><div class="wrap">
 <h1>多模态表格问答 · 答题质量报告</h1>
-<p class="muted">生成时间 {ts} ｜ 数据源 output/result.xlsx + result_debug.xlsx ｜ 判定口径见页脚</p>
+<p class="muted">生成时间 {ts} ｜ 数据源 output/submission.xlsx + result_debug.xlsx ｜ 判定口径见页脚</p>
 <div class="cards">
 <div class="card"><div class="v">{total}</div><div class="k">总题数</div></div>
 <div class="card"><div class="v ok">{ok_n}</div><div class="k">有效答案</div></div>

@@ -1,14 +1,17 @@
 # 全局配置：模型、路径、阈值
 dashscope:
   # ── 通道切换 ──────────────────────────────────────────────────────────────
-  # auto       按下方 token_plan.models 白名单逐模型路由（白名单内走套餐，其余走通用）
+  # auto       按下方 token_plan.models 白名单走模型路由（白名单内走套餐，其余走通用）
   # token_plan 主力模型（视觉/文本/兜底）全走套餐通道；embedding 恒走通用
   # general    全部走通用通道（不用套餐）
-  channel: general
+  channel: auto
   # ─────────────────────────────────────────────────────────────────────────
   base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
-  recognition_model: qwen3.8-omni-flash          # 表格识别主力：看图抽表需多模态模型，flash 系速度/精度均衡
-  answer_model: deepseek-v4-flash-0731         # 答题推理：纯文本无需视觉，锁日期版本防模型漂移
+  #recognition_model: qwen3.8-omni-flash          # 表格识别主力：看图抽表需多模态模型，flash 系速度/精度均衡
+  #answer_model: qwen3.8-2.4t-a95b # 答题推理：纯文本无需视觉，锁日期版本防模型漂移
+  #embedding_model: qwen3.7-text-embedding
+  recognition_model: qwen3.8-max         # 表格识别主力：看图抽表需多模态模型，flash 系速度/精度均衡
+  answer_model: qwen3.8-flash # 答题推理：纯文本无需视觉，锁日期版本防模型漂移
   embedding_model: qwen3.7-text-embedding
 
   token_plan:                        # 套餐通道（Key 在 .env 的 TOKEN_PLAN_API_KEY，与通用 Key 分开）
@@ -27,7 +30,7 @@ paths:
   cache_dir: cache                    # 识别缓存（跨 run 持久）
   vector_dir: vectorstore             # ChromaDB
   runs_dir: runs                      # 中间过程根（runs/work/answers，无需关心）
-  output_dir: output                  # 最终产物目录（result.xlsx 等，每次运行覆盖更新）
+  output_dir: output                  # 最终产物目录（submission.xlsx 等，每次运行覆盖更新）
   prompts_dir: prompts
 
 pdf:

@@ -14,8 +14,10 @@ import json
 import re
 from typing import Any
 
+import numpy as np
+
 _OPS = ("cell", "cells", "diff", "sum", "avg", "count", "subitems", "nonzero",
-        "ratio_sum", "const", "seq")
+        "ratio_sum", "contains", "const", "seq")
 
 # 表格区块边界（层级）：中文序号(3) > 括号序号(2) > 冒号分组(1)。
 # 利润表"一、营业总收入"、变动表"（一）综合收益总额"、资产负债表"非流动负债："。
@@ -97,6 +99,10 @@ def _cell(df, ref: dict) -> Any:
 def _strip_float_noise(value):
     if isinstance(value, float):
         return float(f"{value:.12g}")
+    if isinstance(value, np.integer):       # df.at/iloc 取格返回 int64，非 int 子类
+        return int(value)                   # （qid=198: 穿透致 json.dumps 崩溃）
+    if isinstance(value, np.floating):
+        return float(f"{float(value):.12g}")
     if isinstance(value, list):
         return [_strip_float_noise(v) for v in value]
     return value
@@ -276,6 +282,17 @@ def execute_op(op: dict, df):
         if not needle:
             return int(len(df))
         return sum(1 for v in cells if _count_match(v, needle))
+    if kind == "contains":
+        # 全表存在性扫描（qid=538："是否含评审记录/自由调整/复盘"——
+        # 证据散落在非首列各格，count 只搜首列会误判"否"）。
+        needle = str(op.get("text", "")).strip()
+        if not needle:
+            raise ValueError("contains 缺 text")
+        for _, rrow in df.iterrows():
+            for v in rrow.tolist():
+                if not _is_empty(v) and _count_match(str(v).strip(), needle):
+                    return "是"
+        return "否"
     if kind == "subitems":
         return _op_subitems(df, str(op.get("item", "")))
     if kind == "nonzero":

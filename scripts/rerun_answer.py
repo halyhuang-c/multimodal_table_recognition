@@ -31,7 +31,9 @@ from table_qa.schema import AnswerRecord  # noqa: E402
 def _backfill(results: dict[str, AnswerRecord]) -> None:
     import pandas as pd
 
-    res_path = ROOT / "output" / "result.xlsx"
+    res_path = ROOT / "output" / "submission.xlsx"
+    if not res_path.exists():
+        res_path = ROOT / "output" / "result.xlsx"   # 旧文件名兼容
     res = pd.read_excel(res_path)
     for qid, rec in results.items():
         res.loc[res["id"].astype(str) == qid, "answer"] = rec.value
@@ -47,7 +49,7 @@ def _backfill(results: dict[str, AnswerRecord]) -> None:
             dbg.loc[mask, "score"] = rec.confidence_score
             dbg.loc[mask, "events"] = ";".join(rec.confidence_events)
         dbg.to_excel(dbg_path, index=False)
-    print(f"已回填 result.xlsx / result_debug.xlsx（{len(results)} 题）")
+    print(f"已回填 {res_path.name} / result_debug.xlsx（{len(results)} 题）")
 
 
 def main() -> None:

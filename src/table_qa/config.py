@@ -44,7 +44,7 @@ class PathsCfg(BaseModel):
     cache_dir: Path = Path("cache")
     vector_dir: Path = Path("vectorstore")
     runs_dir: Path = Path("runs")          # 中间过程根（runs/work/answers）
-    output_dir: Path = Path("output")      # 最终产物目录（result.xlsx 等，覆盖更新）
+    output_dir: Path = Path("output")      # 最终产物目录（submission.xlsx 等，覆盖更新）
     prompts_dir: Path = Path("prompts")
 
     def abs_path(self, p: Path) -> Path:
@@ -54,6 +54,10 @@ class PathsCfg(BaseModel):
 class PdfCfg(BaseModel):
     dpi: int = 220
     text_density_threshold: int = 50
+    # 文本层健康检查：密度达标但符号占比超阈值且有效文字（CJK/拉丁词）不足时，
+    # 判定 ToUnicode 映射损坏（071-073 实测 sym=0.71~0.88、CJK=0），转 VLM 通道
+    garbled_symbol_ratio: float = 0.50   # 非字母数字/CJK 符号占非空白字符比例上限
+    garbled_word_ratio: float = 0.25     # CJK+拉丁词字符占比下限
 
 
 class VectorCfg(BaseModel):

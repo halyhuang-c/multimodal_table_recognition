@@ -41,11 +41,13 @@ def answer_extract(question: Question, table: NormalizedTable) -> dict:
     """
     pm = get_prompt_manager()
     unit_clause = f"表内单位注：{table.unit_note}。" if table.unit_note else ""
+    fmt_note = f"答案格式要求：{question.format_note}。" if question.format_note else ""
     prompt = pm.render(
         "extract",
         unit_clause=unit_clause,
         question=question.question,
         table_html=table.html[:8000],   # 超大表截断（prompt 成本控制）
+        format_note=fmt_note,
     )
     raw = get_llm_hub().chat(prompt, phase="extract", question_id=question.id)
     try:

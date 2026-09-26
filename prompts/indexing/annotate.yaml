@@ -1,0 +1,10 @@
+name: annotate
+version: v1.0
+model: text
+description: 为表格生成一句话业务注释（RAG chunk 组成部分）
+template: |
+  阅读下面的表格 HTML，用一句话（不超过 60 字）说明它的业务含义：
+  属于什么报表/什么业务场景、包含哪些主要行列维度。只输出这句话。
+
+  表格 HTML：
+  {{ html_head }}

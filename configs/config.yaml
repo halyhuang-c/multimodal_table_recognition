@@ -1,0 +1,52 @@
+# 全局配置：模型、路径、阈值
+dashscope:
+  # ── 通道切换 ──────────────────────────────────────────────────────────────
+  # auto       按下方 token_plan.models 白名单逐模型路由（白名单内走套餐，其余走通用）
+  # token_plan 主力模型（视觉/文本/兜底）全走套餐通道；embedding 恒走通用
+  # general    全部走通用通道（不用套餐）
+  channel: general
+  # ─────────────────────────────────────────────────────────────────────────
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  # vision_model: qwen3.8-max
+  # fallback_model: qwen3.8-max
+  # text_model: qwen3.8-flash
+  # embedding_model: qwen3.7-text-embedding
+  vision_model: qwen3.8-omni-flash
+  fallback_model: qwen3.8-omni-flash
+  text_model: qwen3.7-flash-2026-07-15
+  embedding_model: qwen3.7-text-embedding
+
+  token_plan:                        # 套餐通道（Key 在 .env 的 TOKEN_PLAN_API_KEY，与通用 Key 分开）
+    base_url: https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1
+    models: [qwen3.8-max, qwen3.8-flash]   # 实测白名单（2026-09-21 探测）
+
+  temperature: 0.0                    # 确定性调用
+  max_tokens: 16384                   # 8192 时 thinking_code 长推理被截断产生空响应（qid=14 实测）
+  vision_concurrency: 4               # 视觉模型并发信号量
+  text_concurrency: 8
+  max_retries: 5                      # tenacity 指数退避上限
+
+paths:
+  files_dir: files                    # 92 个目标文件
+  tests_xlsx: data/tests.xlsx
+  categories: research/file_categories.json   # 调研产物（L1 本地加速）；真实赛题时删除或清空此文件即纯 L2 路由
+  cache_dir: cache                    # 识别缓存（跨 run 持久）
+  vector_dir: vectorstore             # ChromaDB
+  runs_dir: runs                      # 中间过程根（runs/work/answers，无需关心）
+  output_dir: output                  # 最终产物目录（result.xlsx 等，每次运行覆盖更新）
+  prompts_dir: prompts
+
+pdf:
+  dpi: 220                            # PDF 渲染 DPI
+  text_density_threshold: 50          # chars/页 > 50 判定数字原生 PDF
+
+vectorstore:
+  top_k: 3
+  min_similarity: 0.3                 # 低于此分数视为检索未命中
+
+runner:
+  checkpoint: true                    # 断点续跑
+  answer_concurrency: 8
+
+output:
+  show_confidence: true               # 调试模式显示置信度；正式提交置 false

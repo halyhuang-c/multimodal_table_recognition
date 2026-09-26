@@ -1,0 +1,14 @@
+name: table_recognition
+version: v1.0
+model: vision            # vision=使用视觉模型，text=文本模型
+description: VLM 整页识别表格，输出规范 HTML（含合并关系与表名）
+template: |
+  你是表格识别专家。请识别图片中的{{ table_hint_clause }}表格，输出规范 HTML：
+  - 仅输出 <table>...</table>（多张表则依次输出多个，每张表前用一行 "TABLE_NAME: 表名" 标注）；
+  - 合并单元格必须用 rowspan/colspan 表达；
+  - 多级表头按原层级用合并单元格表达，不要展平；
+  - 单元格文本原样保留（含全角字符、单位、括号、换行），不要自行补全或纠正数字；
+  - 页眉、页脚、脚注、页码、水印、红章不要纳入表格；网页/Excel 截图中的按钮、下拉框、
+    复选框、公式栏等 UI 控件必须过滤；
+  - 数字必须逐位仔细核对，禁止推测性填充；无法辨认的单元格输出固定占位符 [MASK]；
+  - 表名取表格上方最近的标题文本；没有则写 TABLE_NAME: -

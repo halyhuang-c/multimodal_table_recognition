@@ -1,0 +1,52 @@
+[project]
+name = "table-qa"
+version = "0.1.0"
+description = "天池多模态表格识别与问答流水线（识别/RAG/答题/调试界面）"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.2.60",
+    "langchain-core>=0.3",
+    "langchain-openai>=0.2",
+    "chromadb>=0.5",
+    "pdfplumber>=0.11",
+    "pymupdf>=1.24",
+    "pillow>=10.3",
+    "opencv-python-headless>=4.9",
+    "pandas>=2.2",
+    "openpyxl>=3.1",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "pyyaml>=6.0",
+    "jinja2>=3.1",
+    "tenacity>=8.3",
+    "loguru>=0.7",
+    "lxml>=5.2",
+    "rapidfuzz>=3.9",
+    "fastapi>=0.111",
+    "uvicorn>=0.30",
+]
+
+[project.optional-dependencies]
+paddle = ["paddleocr>=3.0"]
+dev = ["pytest>=8.2", "ruff>=0.5", "mypy>=1.10"]
+
+[project.scripts]
+table-qa = "table_qa.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/table_qa"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

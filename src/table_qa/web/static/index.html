@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>table-qa 调试台</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; background: #f4f6f8; color: #24292f; height: 100vh; display: flex; flex-direction: column; }
+  header { background: #1f2937; color: #fff; padding: 10px 20px; display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 16px; font-weight: 600; }
+  #costbar { margin-left: auto; font-size: 12px; color: #9ca3af; }
+  #costbar b { color: #60a5fa; }
+  main { flex: 1; display: flex; overflow: hidden; }
+  /* 左侧题目列表 */
+  #list-pane { width: 460px; background: #fff; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; }
+  .filters { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .filters select, .filters input { font-size: 12px; padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 4px; }
+  .filters input { width: 140px; }
+  #question-list { flex: 1; overflow-y: auto; }
+  .q-item { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; cursor: pointer; font-size: 13px; }
+  .q-item:hover { background: #f0f7ff; }
+  .q-item.active { background: #dbeafe; }
+  .q-item .meta { display: flex; gap: 6px; margin-bottom: 3px; align-items: center; }
+  .q-item .text { color: #374151; line-height: 1.4; }
+  .badge { font-size: 11px; padding: 1px 6px; border-radius: 8px; color: #fff; }
+  .b-structure { background: #8b5cf6; } .b-extract { background: #0ea5e9; } .b-thinking { background: #f59e0b; }
+  .b-cat { background: #6b7280; }
+  .b-repair { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; }
+  .repair-box { background: #fffbeb; border: 1px solid #fde68a; }
+  .repair-box .kv .v { color: #92400e; }
+  .b-high { background: #10b981; } .b-medium { background: #f59e0b; } .b-low { background: #ef4444; }
+  /* 右侧详情 */
+  #detail-pane { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+  .card h3 { font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .card h3 .idx { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: #1f2937; color: #fff; align-items: center; justify-content: center; font-size: 12px; }
+  .status-ok { color: #10b981; } .status-warn { color: #f59e0b; } .status-fail { color: #ef4444; }
+  pre { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 320px; overflow-y: auto; }
+  table.preview { border-collapse: collapse; font-size: 12px; max-height: 360px; overflow-y: auto; display: block; }
+  table.preview td { border: 1px solid #cbd5e1; padding: 3px 7px; max-width: 220px; }
+  .kv { display: grid; grid-template-columns: 130px 1fr; gap: 4px 10px; font-size: 13px; }
+  .kv .k { color: #6b7280; }
+  .final-box { border: 2px solid #10b981; }
+  .final-box.low { border-color: #ef4444; }
+  .answer-value { font-size: 16px; font-weight: 600; word-break: break-all; }
+  .events span { display: inline-block; background: #fef2f2; color: #b91c1c; font-size: 11px; padding: 1px 7px; border-radius: 8px; margin: 2px 4px 2px 0; }
+  button { background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 6px 16px; font-size: 13px; cursor: pointer; }
+  button:disabled { background: #9ca3af; cursor: wait; }
+  .hits div { padding: 3px 0; font-size: 13px; border-bottom: 1px dashed #f3f4f6; }
+  .empty { color: #9ca3af; text-align: center; padding: 60px 0; }
+  /* LLM 对话过程（chat 视图） */
+  .chat-item { border-bottom: 1px dashed #e5e7eb; padding: 8px 0 10px; }
+  .chat-item:last-child { border-bottom: none; }
+  .chat-head { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; font-size: 11px; color: #6b7280; }
+  .bubble { border-radius: 10px; padding: 8px 12px; margin: 5px 0; }
+  .bubble.user { background: #eff6ff; border: 1px solid #bfdbfe; }
+  .bubble.bot { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .bubble .b-label { font-size: 10px; color: #6b7280; letter-spacing: 1px; margin-bottom: 2px; }
+  .bubble pre { background: transparent; border: none; padding: 0; max-height: 280px; margin: 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>table-qa 调试台</h1>
+  <button onclick="reloadPrompts()">重载 Prompts</button>
+  <button id="vec-btn" onclick="toggleVector()">向量库浏览</button>
+  <div id="costbar">加载中…</div>
+</header>
+<main>
+  <div id="qa-view" style="display:flex;flex:1;overflow:hidden;">
+  <div id="list-pane">
+    <div class="filters">
+      <select id="f-type">
+        <option value="">全部题型</option>
+        <option value="structure">structure</option>
+        <option value="extract">extract</option>
+        <option value="thinking">thinking</option>
+      </select>
+      <select id="f-conf">
+        <option value="">全部状态</option>
+        <option value="answered">已作答</option>
+        <option value="low">低置信度</option>
+        <option value="repaired">数据修复过</option>
+        <option value="unanswered">未作答</option>
+      </select>
+      <input id="f-search" placeholder="搜索题目/id/文件">
+    </div>
+    <div id="question-list"></div>
+  </div>
+  <div id="detail-pane"><div class="empty">← 选择一道题目开始调试</div></div>
+  </div>
+  <div id="vector-view" style="display:none;flex:1;overflow-y:auto;padding:16px 20px;">
+    <div class="card">
+      <h3><span class="idx">V</span> 向量库（ChromaDB · tables 集合）</h3>
+      <div id="vec-stats" class="kv"><span class="k">状态</span><span>加载中…</span></div>
+    </div>
+    <div class="card">
+      <h3>语义检索
+        <span style="font-size:11px;color:#f59e0b;font-weight:400">每次检索消耗 1 次 embedding 调用</span></h3>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input id="vec-q" placeholder="自然语言查询，如：美国的产品有哪些" style="flex:1;min-width:220px;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px">
+        <select id="vec-file" style="padding:6px"></select>
+        <button onclick="vecSearch()">检索</button>
+      </div>
+      <div id="vec-search-res" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
+      <h3>库内数据
+        <select id="vec-browse-file" style="margin-left:auto;font-size:12px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px"></select>
+      </h3>
+      <div id="vec-chunks"><div class="empty">加载中…</div></div>
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+        <button onclick="vecPage(-20)">上一页</button>
+        <span id="vec-pageinfo" style="font-size:12px;color:#6b7280"></span>
+        <button onclick="vecPage(20)">下一页</button>
+        <button id="vec-clear-btn" style="display:none;background:#6b7280" onclick="clearVecSearch()">清除检索 · 恢复浏览</button>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+let questions = [];
+let currentQid = null;
+
+async function loadQuestions() {
+  const res = await fetch('/api/questions');
+  const data = await res.json();
+  questions = data.items;
+  renderList();
+}
+
+function renderList() {
+  const type = document.getElementById('f-type').value;
+  const conf = document.getElementById('f-conf').value;
+  const search = document.getElementById('f-search').value.trim().toLowerCase();
+  const box = document.getElementById('question-list');
+  const items = questions.filter(q => {
+    if (type && q.question_type !== type) return false;
+    if (conf === 'answered' && !q.answered) return false;
+    if (conf === 'unanswered' && q.answered) return false;
+    if (conf === 'low' && (!q.answered || q.confidence !== 'low')) return false;
+    if (conf === 'repaired' && !(q.repaired && q.repaired.length)) return false;
+    if (search && !(q.id.includes(search) || q.question.toLowerCase().includes(search) || q.file_name.toLowerCase().includes(search))) return false;
+    return true;
+  });
+  box.innerHTML = items.map(q => `
+    <div class="q-item ${q.id === currentQid ? 'active' : ''}" onclick="selectQ('${q.id}')">
+      <div class="meta">
+        <span class="badge b-${q.question_type}">${q.question_type}</span>
+        <span class="badge b-cat">${q.category}</span>
+        ${(q.repaired && q.repaired.length) ? `<span class="badge b-repair" title="${escapeHtml(q.repaired.join('；'))}">修复</span>` : ''}
+        <span style="color:#6b7280;font-size:11px">#${q.id} ${q.file_name}</span>
+        ${q.answered ? `<span class="badge b-${q.confidence}">${q.confidence} ${q.score.toFixed(2)}</span>` : ''}
+      </div>
+      <div class="text">${escapeHtml(q.question).slice(0, 80)}</div>
+    </div>`).join('') || '<div class="empty">无匹配题目</div>';
+}
+
+async function selectQ(qid) {
+  currentQid = qid;
+  renderList();
+  document.getElementById('detail-pane').innerHTML = '<div class="empty">加载中…</div>';
+  const res = await fetch(`/api/record/${qid}`);
+  if (res.status === 404) {
+    const q = questions.find(x => x.id === qid);
+    renderPending(q);
+    return;
+  }
+  renderRecord(await res.json());
+}
+
+function renderPending(q) {
+  document.getElementById('detail-pane').innerHTML = `
+    <div class="card">
+      <h3><span class="idx">?</span> 题目 ${q.id}（未作答）</h3>
+      <div class="kv">
+        <span class="k">题目</span><span>${escapeHtml(q.question)}</span>
+        <span class="k">目标文件</span><span>${q.file_name}（${q.category} 类）</span>
+        <span class="k">表提示</span><span>${escapeHtml(q.table_hint || '-')}</span>
+        <span class="k">答案格式</span><span>${q.answer_format}</span>
+      </div>
+      ${repairHtml(q.repaired)}
+      <p style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button onclick="ingestQuestion('${q.id}', ${q.ingested ? 'true' : 'false'})">
+          ${q.ingested ? '重新入库' : '识别入库'}</button>
+        <button onclick="runQuestion('${q.id}')">答题</button>
+      </p>
+      <div style="font-size:11px;color:#6b7280;margin-top:4px">
+        两阶段独立执行：先「识别入库」再「答题」；「重新入库」会删缓存+清向量chunk重识别（不答题）</div>
+    </div>`;
+}
+
+function repairHtml(repaired) {
+  if (!repaired || !repaired.length) return '';
+  return `<div class="card repair-box" style="margin-top:10px">
+    <h3><span class="badge b-repair">修复</span> 数据修复明细
+      <span style="font-size:11px;color:#b45309;font-weight:400">规则推断产物，建议人工复核</span></h3>
+    <ul style="font-size:12px;color:#92400e;padding-left:18px;line-height:1.8">
+      ${repaired.map(r => `<li>${escapeHtml(r)}</li>`).join('')}
+    </ul>
+    <div style="font-size:11px;color:#b45309">文件名修复依据：原名不存在+补零名存在；题型修复依据：枚举校验失败后按题干关键词推断。</div>
+  </div>`;
+}
+
+async function ingestQuestion(qid, force) {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = force ? '重新入库中（删缓存→重识别→向量入库）…' : '识别入库中…';
+  try {
+    const res = await fetch(`/api/ingest/${qid}${force ? '?force=true' : ''}`, { method: 'POST' });
+    if (!res.ok) { const e = await res.json(); alert('入库失败: ' + (e.detail || res.status)); return; }
+    await loadQuestions();          // 刷新 ingested 状态
+    selectQ(qid);                   // 重渲染面板（未答面板按钮文案随状态更新）
+    if (typeof vecLoaded !== 'undefined' && vecLoaded) loadChunks();   // 向量库联动
+    refreshCost();
+  } finally {
+    btn.disabled = false;
+    const qq = questions.find(x => x.id === qid);
+    btn.textContent = (qq && qq.ingested) ? '重新入库' : '识别入库';
+  }
+}
+
+async function runQuestion(qid) {
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '答题中（RAG检索+作答）…';
+  try {
+    const res = await fetch(`/api/answer/${qid}`, { method: 'POST' });
+    if (!res.ok) { const e = await res.json(); alert('答题失败: ' + (e.detail || res.status)); return; }
+    renderRecord(await res.json());
+    loadQuestions(); refreshCost();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = questions.find(x => x.id === qid)?.answered ? '重新答题' : '答题';
+  }
+}
+
+function renderRecord(rec) {
+  const q = rec.question;
+  const qq = questions.find(x => x.id === rec.question_id);
+  const low = rec.confidence === 'low';
+  const stepsHtml = rec.steps.map((s, i) => `
+    <div class="card">
+      <h3><span class="idx">${i + 1}</span> ${s.title}
+        <span class="status-${s.status === 'ok' ? 'ok' : s.status}">${s.status}</span></h3>
+      ${stepBody(s)}
+    </div>`).join('');
+  document.getElementById('detail-pane').innerHTML = `
+    <div class="card">
+      <h3><span class="idx">Q</span> 题目 ${q.id}
+        <span class="badge b-${q.question_type}">${q.question_type}</span></h3>
+      <div class="kv">
+        <span class="k">题目</span><span>${escapeHtml(q.question)}</span>
+        <span class="k">目标文件</span><span>${q.file_name}</span>
+        <span class="k">表提示</span><span>${escapeHtml(q.table_hint || '-')}</span>
+        <span class="k">答案格式</span><span>${q.answer_format}</span>
+      </div>
+      ${repairHtml(qq && qq.repaired)}
+      <p style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button onclick="ingestQuestion('${q.id}', true)">重新入库</button>
+        <button onclick="runQuestion('${q.id}')">重新答题</button>
+      </p>
+      <div style="font-size:11px;color:#6b7280;margin-top:4px">
+        「重新入库」只重跑识别+向量库（改引擎后用）；「重新答题」删旧答案用现有向量库重答（改提示词后用）</div>
+    </div>
+    ${stepsHtml}
+    ${chatHtml(rec)}
+    <div class="card final-box ${low ? 'low' : ''}">
+      <h3><span class="idx">A</span> 最终答案
+        <span class="badge b-${rec.confidence}">${rec.confidence}（${rec.confidence_score.toFixed(2)}）</span></h3>
+      <div class="answer-value">${escapeHtml(rec.value)}</div>
+      ${rec.confidence_events.length ? `<div class="events" style="margin-top:8px">${rec.confidence_events.map(e => `<span>${e}</span>`).join('')}</div>` : ''}
+      ${usageHtml(rec.usage)}
+    </div>`;
+}
+
+function stepBody(s) {
+  const d = s.data || {};
+  switch (s.step) {
+    case 'retrieve':
+      return `<div class="kv"><span class="k">检索 query</span><span>${escapeHtml(d.query || '')}</span></div>
+        <div class="hits" style="margin-top:8px">${(d.hits || []).map(h =>
+          `<div>表「${escapeHtml(String(h.table_name || '-'))}」 p${h.page} 相似度 <b>${h.similarity}</b></div>`).join('') || '<div style="color:#ef4444">RAG 未命中</div>'}
+        <div style="color:#6b7280;font-size:12px;margin-top:4px">库内候选表: ${d.tables_in_store}${d.ranking ? '，排序: ' + d.ranking.map(escapeHtml).join(' > ') : ''}</div></div>`;
+    case 'range':
+      return `<div class="kv">
+        <span class="k">解析方式</span><span>${d.method}</span>
+        <span class="k">页范围</span><span>${fmtRange(d.page_range)}</span>
+        <span class="k">行范围</span><span>${fmtRange(d.row_range)}</span>
+        <span class="k">列范围</span><span>${fmtRange(d.col_range)}</span></div>`;
+    case 'select': {
+      const html = d.table_html ? `<h3 style="font-size:12px;margin:10px 0 6px;color:#6b7280">选中表预览（排查幻觉用）</h3>${renderTablePreview(d.table_html)}` : '';
+      return `<div class="kv">
+        <span class="k">选中表</span><span>${escapeHtml(String(d.selected || '-'))}（${d.rows}x${d.cols}，${d.engine}）</span>
+        <span class="k">匹配分</span><span>${d.score}</span>
+        <span class="k">候选数</span><span>${d.candidates}</span></div>${html}`;
+    }
+    case 'answer':
+      if (d.code !== undefined) return `<div class="kv"><span class="k">执行</span><span class="${d.exec_ok ? 'status-ok' : 'status-fail'}">${d.exec_ok ? '沙箱执行成功' : '沙箱失败(直算降级)'}</span>
+        <span class="k">结果</span><span>${escapeHtml(String(d.value))}</span></div><pre>${escapeHtml(d.code || '')}</pre>`;
+      if (d.verified !== undefined) return `<div class="kv">
+        <span class="k">取值</span><span>${escapeHtml(JSON.stringify(d.value))}</span>
+        <span class="k">回查</span><span class="${d.verified ? 'status-ok' : 'status-fail'}">${d.verified ? '已验证存在于表中' : '未在表中找到（幻觉信号）'}</span>
+        <span class="k">定位</span><span>${escapeHtml(JSON.stringify(d.locate))}</span>
+        <span class="k">理由</span><span>${escapeHtml(d.reason || '')}</span></div>`;
+      if (d.partial !== undefined) return `<div class="kv">
+        <span class="k">局部恢复</span><span>${d.partial}</span>
+        <span class="k">行列数</span><span>${d.row_count} x ${d.col_count}</span></div>`;
+      return `<pre>${escapeHtml(JSON.stringify(d, null, 2))}</pre>`;
+    case 'format':
+      return `<div class="kv">
+        <span class="k">格式</span><span>${d.answer_format}</span>
+        <span class="k">答案</span><span>${escapeHtml(String(d.value || ''))}</span>
+        <span class="k">置信分</span><span>${d.score}</span>
+        <span class="k">事件</span><span>${escapeHtml((d.events || []).join(', ') || '无')}</span></div>`;
+    default:
+      return `<pre>${escapeHtml(JSON.stringify(d, null, 2))}</pre>`;
+  }
+}
+
+function chatHtml(rec) {
+  const calls = rec.llm_calls || [];
+  if (!calls.length) {
+    return `<div class="card">
+      <h3><span class="idx">C</span> LLM 对话过程</h3>
+      <div class="empty">此题为历史作答（改造前），未采集对话留痕。<br>点击上方「重新答题」即可采集完整推导过程。</div>
+    </div>`;
+  }
+  return `<div class="card">
+    <h3><span class="idx">C</span> LLM 对话过程（${calls.length} 次调用，按时间顺序）</h3>
+    ${calls.map((c, i) => `
+      <div class="chat-item">
+        <div class="chat-head">
+          <b style="color:#374151">#${i + 1}</b>
+          <span class="badge b-structure">${escapeHtml(c.phase)}</span>
+          <span class="badge b-extract">${escapeHtml(c.model || '?')}</span>
+          <span>${c.latency_s ?? '-'}s · ${c.input_tokens ?? '-'}→${c.output_tokens ?? '-'} tok</span>
+          ${c.image ? `<span>📷 ${escapeHtml(String(c.image).split(/[\\/]/).pop())}</span>` : ''}
+        </div>
+        <div class="bubble user"><div class="b-label">PROMPT（发给模型）</div><pre>${escapeHtml(c.prompt)}</pre></div>
+        <div class="bubble bot"><div class="b-label">RESPONSE（模型返回）</div><pre>${escapeHtml(c.response)}</pre></div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function renderTablePreview(html) {
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const table = doc.querySelector('table');
+    if (!table) return '<pre>' + escapeHtml(html.slice(0, 1500)) + '</pre>';
+    return `<table class="preview">${table.innerHTML.replace(/<t[hd]/g, '<td')}</table>`;
+  } catch (e) { return '<pre>' + escapeHtml(html.slice(0, 1500)) + '</pre>'; }
+}
+
+function usageHtml(usage) {
+  if (!usage || !usage.length) return '';
+  const byPhase = {};
+  usage.forEach(u => {
+    const key = u.phase;
+    byPhase[key] = (byPhase[key] || 0) + u.input_tokens + u.output_tokens;
+  });
+  const total = Object.values(byPhase).reduce((a, b) => a + b, 0);
+  return `<div style="margin-top:10px;font-size:12px;color:#6b7280">本题 token：<b>${total}</b>（${Object.entries(byPhase).map(([k, v]) => `${k}:${v}`).join('，')}）</div>`;
+}
+
+async function refreshCost() {
+  const res = await fetch('/api/cost');
+  const data = await res.json();
+  const s = data.summary || {};
+  let inSum = 0, outSum = 0, calls = 0;
+  for (const ph of Object.values(s)) { inSum += ph.input; outSum += ph.output; calls += ph.calls; }
+  document.getElementById('costbar').innerHTML =
+    `累计 token：<b>${(inSum + outSum).toLocaleString()}</b>（输入 ${inSum.toLocaleString()} / 输出 ${outSum.toLocaleString()}，${calls} 次调用）`;
+}
+
+async function reloadPrompts() {
+  const res = await fetch('/api/prompts/reload', { method: 'POST' });
+  const data = await res.json();
+  alert('Prompts 已重载，指纹: ' + data.fingerprint);
+}
+
+function escapeHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function fmtRange(r) { return Array.isArray(r) ? `[${r[0]}, ${r[1]}]` : '整表（未限定）'; }
+
+/* ---------------------------------------------------------------- 向量库浏览 */
+let vecOffset = 0, vecTotal = 0, vecLoaded = false, vecSearchMode = false, vecSeq = 0;
+
+async function toggleVector() {
+  const v = document.getElementById('vector-view'), qa = document.getElementById('qa-view');
+  const on = v.style.display === 'none';
+  v.style.display = on ? 'block' : 'none';
+  qa.style.display = on ? 'none' : 'flex';
+  document.getElementById('vec-btn').textContent = on ? '返回题目调试' : '向量库浏览';
+  if (on && !vecLoaded) await loadVector();
+}
+
+async function loadVector() {
+  const res = await fetch('/api/vector/stats');
+  if (!res.ok) {
+    document.getElementById('vec-stats').innerHTML =
+      `<span class="k">加载失败</span><span style="color:#ef4444">HTTP ${res.status}：web 服务是旧进程，缺少新接口。<br>请在运行 table-qa web 的终端按 Ctrl+C，重新执行 <code>table-qa web</code> 后刷新本页。</span>`;
+    return;
+  }
+  const st = await res.json();
+  const engines = Object.entries(st.by_engine || {}).map(([k, v]) => `${k}:${v}`).join('，') || '-';
+  document.getElementById('vec-stats').innerHTML = `
+    <span class="k">chunk 总数</span><span><b>${st.total}</b>（每张表一个 chunk）</span>
+    <span class="k">覆盖文件</span><span><b>${st.files}</b> 个</span>
+    <span class="k">识别引擎分布</span><span>${escapeHtml(engines)}</span>`;
+  const files = Object.keys(st.by_file || {}).sort();
+  const opts = ['<option value="">全部文件</option>']
+    .concat(files.map(f => `<option value="${f}">${f}（${st.by_file[f]} 表）</option>`)).join('');
+  document.getElementById('vec-file').innerHTML = opts;
+  document.getElementById('vec-browse-file').innerHTML = opts;
+  document.getElementById('vec-browse-file').onchange = () => { vecOffset = 0; loadChunks(); };
+  vecLoaded = true;
+  await loadChunks();
+}
+
+async function loadChunks() {
+  const file = document.getElementById('vec-browse-file').value;
+  const box = document.getElementById('vec-chunks');
+  box.innerHTML = '<div class="empty">加载中…</div>';
+  const res = await fetch(`/api/vector/chunks?file_name=${encodeURIComponent(file)}&limit=20&offset=${vecOffset}`);
+  if (!res.ok) {
+    box.innerHTML = `<div class="empty">加载失败 HTTP ${res.status}（旧进程？请重启 table-qa web）</div>`;
+    return;
+  }
+  const data = await res.json();
+  vecTotal = data.total;
+  vecSearchMode = false;
+  document.getElementById('vec-clear-btn').style.display = 'none';
+  box.innerHTML = data.items.map(c => chunkItemHtml(c)).join('') || '<div class="empty">该筛选下无数据</div>';
+  const shown = data.items.length;
+  document.getElementById('vec-pageinfo').textContent = vecTotal
+    ? `${vecOffset + 1}-${vecOffset + shown} / 共 ${vecTotal}` : '0';
+}
+
+/* 统一的 chunk 条目渲染：浏览项与检索命中（带 sim 徽章）共用 */
+function chunkItemHtml(c) {
+  const id = `vchk-${vecSeq++}`;
+  return `
+    <div class="q-item" style="cursor:default">
+      <div class="meta">
+        <span class="badge b-cat">${escapeHtml(c.engine)}</span>
+        <span style="color:#374151;font-weight:600">${escapeHtml(c.file_name)} · p${c.page}</span>
+        <span class="badge b-cat">${c.rows}x${c.cols}</span>
+        <span style="color:#6b7280;font-size:11px">conf ${c.confidence}</span>
+        ${c.similarity !== undefined ? `<span class="badge b-high">sim ${c.similarity}</span>` : ''}
+        <a href="javascript:void(0)" onclick="vecTogglePre('${id}', this)" style="font-size:12px">展开 chunk</a>
+      </div>
+      <div class="text">${escapeHtml(c.table_name || '(未命名表)')}</div>
+      <div id="${id}" style="display:none">
+        <div style="font-size:11px;color:#6b7280;margin:8px 0 3px">渲染预览（表格显示效果）</div>
+        ${vecTablePreview(c.chunk_text)}
+        <details style="margin-top:8px">
+          <summary style="font-size:12px;color:#2563eb;cursor:pointer">chunk 原文（元数据 + HTML 源码）</summary>
+          <pre>${escapeHtml(c.chunk_text)}</pre>
+        </details>
+      </div>
+    </div>`;
+}
+
+function vecTogglePre(id, link) {
+  const p = document.getElementById(id);
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  link.textContent = p.style.display === 'none' ? '展开 chunk' : '收起';
+}
+
+/* chunk_text 中截取 HTML 表格部分做可视渲染；截断的表 DOMParser 也能容错解析 */
+function vecTablePreview(text) {
+  const idx = text.indexOf('<table');
+  if (idx < 0) return '<div class="empty" style="padding:12px 0">该 chunk 无 HTML 表格</div>';
+  return renderTablePreview(text.slice(idx));
+}
+
+function vecPage(delta) {
+  if (vecSearchMode) return;   // 检索结果模式下分页禁用（先清除检索恢复浏览）
+  const next = vecOffset + delta;
+  if (next < 0 || (vecTotal && next >= vecTotal)) return;
+  vecOffset = next;
+  loadChunks();
+}
+
+async function clearVecSearch() {
+  vecOffset = 0;
+  await loadChunks();
+}
+
+async function vecSearch() {
+  const q = document.getElementById('vec-q').value.trim();
+  if (!q) return;
+  const file = document.getElementById('vec-file').value;
+  const box = document.getElementById('vec-search-res');
+  box.innerHTML = '<div class="empty">检索中（1 次 embedding 调用）…</div>';
+  try {
+    const res = await fetch(`/api/vector/search?q=${encodeURIComponent(q)}&file_name=${encodeURIComponent(file)}&k=8`);
+    if (!res.ok) { const e = await res.json(); box.innerHTML = `<div class="empty">检索失败: ${escapeHtml(e.detail || res.status)}</div>`; return; }
+    const data = await res.json();
+    box.innerHTML = data.hits.length
+      ? `<div style="font-size:12px;color:#6b7280;margin-bottom:4px">命中 ${data.hits.length} 条，已同步到下方「库内数据」</div>` + data.hits.map(h => `
+        <div style="padding:6px 0;border-bottom:1px dashed #e5e7eb;font-size:13px">
+          <b>${escapeHtml(h.metadata.file_name)}</b> p${h.metadata.page}
+          「${escapeHtml(h.metadata.table_name || '-')}」
+          ${h.metadata.rows}x${h.metadata.cols}（${escapeHtml(h.metadata.engine)}）
+          <span class="badge b-high">sim ${h.similarity}</span>
+          ${h.rerank_bonus !== undefined && h.rerank_bonus > 0 ? `<span class="badge b-low" title="关键词重排加成">+${h.rerank_bonus} → ${h.adjusted_score}</span>` : ''}
+        </div>`).join('') : '<div class="empty">无命中（低于相似度阈值）</div>';
+    // 同步刷新下方库内数据：只保留检索命中的 chunk（可展开查看/渲染）
+    vecSearchMode = true;
+    vecTotal = data.hits.length;
+    const hits = data.hits.map(h => ({ ...h.metadata, chunk_text: h.chunk_text,
+                                       similarity: h.similarity,
+                                       rerank_bonus: h.rerank_bonus,
+                                       adjusted_score: h.adjusted_score }));
+    const chunkBox = document.getElementById('vec-chunks');
+    chunkBox.innerHTML = hits.map(c => chunkItemHtml(c)).join('')
+      || '<div class="empty">无命中（低于相似度阈值）</div>';
+    document.getElementById('vec-pageinfo').textContent = vecTotal ? `检索结果 ${vecTotal} 条` : '';
+    document.getElementById('vec-clear-btn').style.display = vecTotal ? '' : 'none';
+  } catch (e) {
+    box.innerHTML = `<div class="empty">检索失败: ${escapeHtml(String(e))}</div>`;
+  }
+}
+
+document.getElementById('f-type').onchange = renderList;
+document.getElementById('f-conf').onchange = renderList;
+document.getElementById('f-search').oninput = renderList;
+loadQuestions(); refreshCost(); setInterval(refreshCost, 15000);
+</script>
+</body>
+</html>

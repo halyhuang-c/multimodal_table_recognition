@@ -1,0 +1,4 @@
+# 全局默认参数：各 prompt 未显式声明时继承
+defaults:
+  temperature: 0.0
+  max_tokens: 8192

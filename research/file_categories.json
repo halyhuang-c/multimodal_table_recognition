@@ -1,0 +1,646 @@
+{
+ "001.pdf": {
+  "category": "A",
+  "language": "中文",
+  "header_structure": "简单",
+  "quality": "清晰、水印、正文混排",
+  "note": "人工智能产业报告正文内嵌的「国内外智能体开发工具与平台」四列有线表，公司/工具/国别/功能，单层表头，斜向水印"
+ },
+ "002.pdf": {
+  "category": "D",
+  "language": "中文",
+  "header_structure": "简单",
+  "quality": "清晰、红章",
+  "note": "合并资产负债表纸质扫描件，项目/附注/期末/上期四列，红公章覆盖编制单位行，底部手写签字"
+ },
+ "003.pdf": {
+  "category": "D",
+  "language": "中文",
+  "header_structure": "多级分组",
+  "quality": "清晰、红章",
+  "note": "合并利润表扫描件，收入/成本/费用/净利润多级缩进科目，本期/上期两列，带红章与手写签名"
+ },
+ "004.pdf": {
+  "category": "D",
+  "language": "中文",
+  "header_structure": "多级分组",
+  "quality": "清晰、红章",
+  "note": "合并现金流量表扫描件，经营/投资/筹资活动三大块多级缩进，本期/上期金额，红章压标题"
+ },
+ "005.pdf": {
+  "category": "D",
+  "language": "中文",
+  "header_structure": "多级分组",
+  "quality": "清晰、红章",
+  "note": "合并股东权益变动表宽表扫描件，股本到股东权益合计十余列分组表头，本期金额横跨多子列，带红章"
+ },
+ "006.pdf": {
+  "category": "B",
+  "language": "中文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "财务报表附注：账龄表为简单有线表；坏账准备计提方法表期末/期初余额下各分账面余额、坏账准备、金额比例"
+ },
+ "007.pdf": {
+  "category": "A",
+  "language": "中文",
+  "header_structure": "简单",
+  "quality": "清晰",
+  "note": "投资性房地产/固定资产附注表，项目/房屋建筑物/土地使用权/合计单层表头，账面原值/折旧/减值按行分组缩进"
+ },
+ "008.pdf": {
+  "category": "B",
+  "language": "中文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "关联租赁表费用/租金/利息/使用权资产各分本期上期，应收应付款项期末期初各分账面余额坏账准备，多层合并表头"
+ },
+ "009.pdf": {
+  "category": "A",
+  "language": "中文",
+  "header_structure": "简单",
+  "quality": "清晰、彩色样式",
+  "note": "《赢在AI+》创企案例附录，序号/公司名称/业务及AI创新点三列蓝头表，左侧「第一期」竖排分组，创新点列为成段文字"
+ },
+ "010.png": {
+  "category": "F",
+  "language": "中英混排",
+  "header_structure": "无表头",
+  "quality": "清晰、彩色样式",
+  "note": "Day1–Day6×时间段彩色日程卡片，与056重复（同一张图）；无标准单元格线，按天列与时间段行排布卡片"
+ },
+ "011.jpg": {
+  "category": "D",
+  "language": "中英混排",
+  "header_structure": "合并单元格多",
+  "quality": "清晰",
+  "note": "中文课程基本信息表单翻拍，课程代码/名称/性质/对象/双语简介，中英字段叠印，简介为成段文字"
+ },
+ "012.jpg": {
+  "category": "D",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "英文学业成就/升学资格表，Co-Scholastic清单及TGT文理社三表，一二三年级各分科目/开设/得分子列"
+ },
+ "013.jpg": {
+  "category": "D",
+  "language": "英文（含阿拉伯语抬头）",
+  "header_structure": "简单",
+  "quality": "清晰、彩色样式",
+  "note": "空调2吨技术规格招标页，阿拉伯语抬头+Item/Qty/Each黄标行，制冷量/温度/功率等成段规格说明"
+ },
+ "014.jpg": {
+  "category": "D",
+  "language": "英文（含阿拉伯语抬头）",
+  "header_structure": "简单",
+  "quality": "清晰、彩色样式",
+  "note": "缝纫机/蒸汽炉/压烫机招标页Lot No.1，各物品黄标题块，转速/针距/功率等成段技术参数"
+ },
+ "015.jpg": {
+  "category": "D",
+  "language": "英文",
+  "header_structure": "简单",
+  "quality": "清晰",
+  "note": "圆形线圈/锥形导体/电扇实验器材规格页，Item No+Component&Specification两列，参数短字段"
+ },
+ "016.jpg": {
+  "category": "D",
+  "language": "英文",
+  "header_structure": "简单",
+  "quality": "清晰",
+  "note": "光电效应装置/香蕉插头导线组规格续页，Box/Switch/Accessories成段描述，Item Name紫标签块"
+ },
+ "017.jpg": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "简单",
+  "quality": "清晰、彩色样式",
+  "note": "数字表格截图，按校区总分排名Ranking/Pts/School/District/CC，District1/2蓝头分块，行底色清晰"
+ },
+ "018.jpg": {
+  "category": "D",
+  "language": "西班牙文",
+  "header_structure": "简单",
+  "quality": "清晰、水印、彩色样式",
+  "note": "西班牙市政燃油预算页，DEPENDENCIA/SITUACION容量表，下方消耗表按Teatro/Dependencias/服务通用橙黄蓝分组行，叠加油机示意图水印"
+ },
+ "019.jpg": {
+  "category": "D",
+  "language": "立陶宛文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "立陶宛语卫生设备规范双栏对照表，两项并列编号子表，附长脚注"
+ },
+ "020.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "简单",
+  "quality": "清晰",
+  "note": "数字预算表截图，Program 1.1食品监管活动，2011-12实际到2015-16前推各年金额列，灰头分块"
+ },
+ "021.jpg": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "简单",
+  "quality": "清晰、彩色样式",
+  "note": "材料成分三列表Material/C%/Si%，蓝表头红黄绿行底色区分标准值与实测值，数字短字段"
+ },
+ "022.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰、彩色样式",
+  "note": "资产负债表式财务表，ASSETS/LIABILITIES/EQUITY分组，列头按估算/预算/预测跨列分档，灰列高亮"
+ },
+ "023.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "疟疾统计长表，Areas/Children/Visits后接Malaria与Non-malaria各分n(%)，末列为aOR，数字带括号百分比"
+ },
+ "024.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组、合并单元格多",
+  "quality": "清晰、彩色样式",
+  "note": "设备维修调查表，Residential与Small Commercial两类客户各分Inland/Mild/Total，紫边框，行底色斜纹水印"
+ },
+ "025.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组、合并单元格多",
+  "quality": "清晰、水印、彩色样式",
+  "note": "与024同系列频率调查，客户类型×地域分三档列，频次行带百分比，斜灰纹水印明显"
+ },
+ "026.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰、彩色样式",
+  "note": "用药错误事件统计表，Target为错剂量/错药等，列头Baseline至YTD按季度跨列，灰表头列"
+ },
+ "027.webp": {
+  "category": "C",
+  "language": "中英混排",
+  "header_structure": "多级分组",
+  "quality": "清晰、彩色样式",
+  "note": "OCR与大模型评测对比表，行侧中文类别（文档解析/表格识别等），列侧英文模型名，GLM-OCR蓝框高亮"
+ },
+ "028.jpg": {
+  "category": "C",
+  "language": "中文",
+  "header_structure": "简单、合并单元格多",
+  "quality": "清晰、彩色样式",
+  "note": "高校课程表，节次×星期网格，课程带周次(1-15周)，大量跨行合并的彩色块单元格"
+ },
+ "029.png": {
+  "category": "C",
+  "language": "挪威语",
+  "header_structure": "简单",
+  "quality": "清晰、彩色样式",
+  "note": "挪威语选课表Fag/志愿人数/组数两区段，课程名长，蓝紫绿行底色分组，数字短字段"
+ },
+ "030.png": {
+  "category": "C",
+  "language": "斯洛伐克语",
+  "header_structure": "简单",
+  "quality": "清晰",
+  "note": "斯洛伐克语法律义务三列表，末列Komentár为整段条文，行首为编号①-⑧，单元格内成段文字"
+ },
+ "031.png": {
+  "category": "C",
+  "language": "葡萄牙语",
+  "header_structure": "简单",
+  "quality": "清晰、彩色样式、正文混排",
+  "note": "桑巴舞校评分表，Agremiação列嵌入校徽图片，Nota与葡语大写分数列，彩色行底"
+ },
+ "032.jpg": {
+  "category": "D",
+  "language": "中文",
+  "header_structure": "简单",
+  "quality": "水印、倾斜或模糊",
+  "note": "扫描成绩单有印刷网点摩尔纹，绿色斜向水印贯穿，字体发虚，编号/姓名/性别/年级/分数规整"
+ },
+ "033.jpg": {
+  "category": "D",
+  "language": "中文",
+  "header_structure": "无表头",
+  "quality": "倾斜或模糊、正文混排",
+  "note": "拍照的不动产权证书键值表，暖黄纸底，权利人坐落等被涂抹，权利其他状况整段文字模糊重影"
+ },
+ "034.png": {
+  "category": "C",
+  "language": "中文",
+  "header_structure": "无表头、合并单元格多",
+  "quality": "清晰、彩色样式",
+  "note": "员工信息表分区表单，基本信息/联系方式/家庭成员/任职记录，嵌入头像，键值合并单元格多"
+ },
+ "035.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "简单",
+  "quality": "清晰、彩色样式",
+  "note": "Markdown工具对比表，行侧特性列侧Quarkdown/LaTeX等，单元格为勾叉图标或Partial等词，深色底"
+ },
+ "036.jpg": {
+  "category": "D",
+  "language": "中英混排",
+  "header_structure": "合并单元格多",
+  "quality": "倾斜或模糊、正文混排",
+  "note": "扫描出口报关单，黑白线框，顶部日期与底部手写数字批注，线歪墨点，中英字段混排"
+ },
+ "037.jpg": {
+  "category": "C",
+  "language": "中文",
+  "header_structure": "简单、合并单元格多",
+  "quality": "清晰",
+  "note": "小学课程表节次×星期网格，上午下午分区，课间操眼保健操跨列合并，线条规整字可读"
+ },
+ "038.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰、正文混排",
+  "note": "实验因素水平表Factor/Levels分-1/0/1，下方重复渲染了带\\n命令的LaTeX源码式表与吸附剂物性表"
+ },
+ "039.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "回归系数表Variable/Category，两健康结果列各带Coefficient与Bootstrap SE，类别缩进排版"
+ },
+ "040.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "病例对照基线表，Control/Case两组各Mean±SD或N%，覆盖性别用药年龄生理指标，列对齐"
+ },
+ "041.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "力学试验数据表，Young/Elderly分组，Contact area与Maximum force各分A/B，数值列对齐"
+ },
+ "043.jpg": {
+  "category": "C",
+  "language": "中文",
+  "header_structure": "多级分组、合并单元格多",
+  "quality": "清晰、彩色样式",
+  "note": "蓝绿表头三列指标体系表（分类/一级/二级），纵向合并单元格构成产品能力分级树，线框规整"
+ },
+ "044.jpg": {
+  "category": "C",
+  "language": "中文",
+  "header_structure": "合并单元格多",
+  "quality": "清晰",
+  "note": "黑白线框中标公告表，七列字段，标段编号与中标价等跨行合并，工期单元格为长句说明"
+ },
+ "045.jpg": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "英文论文实验结果表，分FinTabNet与PubTabNet两个子表，列含Methods/Training Dataset/S-TEDS/TEDS"
+ },
+ "046.jpg": {
+  "category": "C",
+  "language": "中英混排",
+  "header_structure": "合并单元格多",
+  "quality": "清晰",
+  "note": "灰底字段标签式中英双语用车申请表，标签与值分栏，含多行英文安全驾驶勾选说明"
+ },
+ "047.jpg": {
+  "category": "C",
+  "language": "中文",
+  "header_structure": "多级分组",
+  "quality": "清晰、彩色样式",
+  "note": "中文简历表，绿色分节条划分基本技能/教育/实习/其他，字段标签行含多行职责与自我评价"
+ },
+ "048.jpg": {
+  "category": "C",
+  "language": "中文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "中文资产负债表，项目列加期末/年初余额两数列，流动资产与非流动资产为分组标题行"
+ },
+ "049.jpg": {
+  "category": "C",
+  "language": "中英混排",
+  "header_structure": "合并单元格多",
+  "quality": "清晰",
+  "note": "NIKE夹克商品规格表，上半字段标签（面料/洗涤），下半尺码×衣长胸围矩阵，商品介绍为整段文字"
+ },
+ "051.jpg": {
+  "category": "D",
+  "language": "中文",
+  "header_structure": "合并单元格多",
+  "quality": "倾斜或模糊、水印",
+  "note": "出口货物报关单扫描件，顶部马赛克红章条，金额区模糊打码，黑白纸质表单翻拍"
+ },
+ "052.jpg": {
+  "category": "D",
+  "language": "中英混排",
+  "header_structure": "合并单元格多",
+  "quality": "倾斜或模糊、水印",
+  "note": "出口报关单扫描件，顶部马赛克条，单价区像素化打码，提运单号有手写A，含英文港口名"
+ },
+ "053.jpg": {
+  "category": "D",
+  "language": "英文",
+  "header_structure": "简单",
+  "quality": "倾斜或模糊",
+  "note": "食品包装Nutrition Facts标签照片，左侧露橙色包边，右侧边缘被裁切，标签略带透视"
+ },
+ "054.jpg": {
+  "category": "D",
+  "language": "荷/法/英多语种",
+  "header_structure": "简单",
+  "quality": "倾斜或模糊",
+  "note": "酸奶杯营养标签照片，蓝白标签贴在弧形杯面，荷法英多语种，100g/125g两列"
+ },
+ "055.jpg": {
+  "category": "C",
+  "language": "中文",
+  "header_structure": "简单",
+  "quality": "清晰、彩色样式",
+  "note": "笔记本套餐报价表，红色表头加红色高亮SSD列，13列含处理器/内存/价格/活动价，附脚注"
+ },
+ "056.png": {
+  "category": "F",
+  "language": "中文（含英文标签）",
+  "header_structure": "无表头",
+  "quality": "清晰、彩色样式",
+  "note": "Day1–Day6×时间段彩色日程卡片图，圆角卡片加Problem/Product等彩色标签，无标准表格线（与010为同一文件）"
+ },
+ "057.jpg": {
+  "category": "F",
+  "language": "中文",
+  "header_structure": "无表头",
+  "quality": "清晰、彩色样式",
+  "note": "澎湃美数课条形信息图，公司×年份×三指标用横条编码数值，含标注框与脚注，非线框表"
+ },
+ "058.pdf": {
+  "category": "B",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "DeepSeek模型对比表，按World Knowledge/Lang&Reas/Code&Math分组，表头三层，数值带加粗/下划线"
+ },
+ "059.pdf": {
+  "category": "B",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "DeepSeek-V4-Pro-Max对比表，行标签纵向旋转，按Knowledge&Reasoning/LongRange/Agentic分组，多模型列"
+ },
+ "060.pdf": {
+  "category": "B",
+  "language": "中英混排",
+  "header_structure": "多级分组、合并单元格多",
+  "quality": "清晰",
+  "note": "含Table9/10/11，Table11按客观/主观问答分类、子分类与小计行，中英对照标注"
+ },
+ "061.pdf": {
+  "category": "B",
+  "language": "中文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "功能写作对比表，按办公/媒体/生活等大类与子分类嵌套，含小计与合计行"
+ },
+ "062.pdf": {
+  "category": "B",
+  "language": "中英混排",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "Table13写作对比，表头分指令遵循/写作质量两大组，各含DS/Gem/Tie子列与小计"
+ },
+ "063.pdf": {
+  "category": "A",
+  "language": "英文",
+  "header_structure": "简单",
+  "quality": "清晰",
+  "note": "横向排版水文站点特征表，单层旋转列头，多列数值，脚注带上标"
+ },
+ "064.pdf": {
+  "category": "A",
+  "language": "英文",
+  "header_structure": "简单",
+  "quality": "清晰",
+  "note": "配对流域流量削减表，单层表头Catchment/Year/Rainfall等，带脚注上标"
+ },
+ "065.pdf": {
+  "category": "A",
+  "language": "中文",
+  "header_structure": "简单",
+  "quality": "彩色样式、正文混排",
+  "note": "券商研报封面页，底部盈利预测财务指标表为单层年份列头，上方大段正文"
+ },
+ "066.pdf": {
+  "category": "B",
+  "language": "中文",
+  "header_structure": "多级分组、合并单元格多",
+  "quality": "彩色样式",
+  "note": "盈利预测假设拆分表，蓝色分组行（收入金额/毛利率/费用率）嵌套直营/加盟子项，多期列"
+ },
+ "067.pdf": {
+  "category": "A",
+  "language": "中文",
+  "header_structure": "简单",
+  "quality": "彩色样式",
+  "note": "财务预测估值页，资产负债表/利润表/现金流量表三块并列，各为单层年份列头"
+ },
+ "068.pdf": {
+  "category": "B",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "TableFormer论文表，表头Before/After Perturb两组下含dev/test等子列，方法行带上下标"
+ },
+ "069.pdf": {
+  "category": "B",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "Table1扰动结果表，Before/After Perturb下分ALL/SEQ/ALLd与V.P.子列"
+ },
+ "070.pdf": {
+  "category": "A",
+  "language": "英文",
+  "header_structure": "简单",
+  "quality": "清晰、正文混排",
+  "note": "立体匹配方法对比Table II，单层表头Method/GPU/MEv/FPS/Error，带脚注上标"
+ },
+ "071.pdf": {
+  "category": "B",
+  "language": "中文",
+  "header_structure": "多级分组、合并单元格多",
+  "quality": "清晰",
+  "note": "GB/T3620.1纯钛及钛合金化学成分表，横向超宽，主要成分/杂质分组列头旋转密集"
+ },
+ "072.pdf": {
+  "category": "B",
+  "language": "中文",
+  "header_structure": "多级分组、合并单元格多",
+  "quality": "清晰",
+  "note": "国标表1续与表2 β型钛合金化学成分，超宽分组列头，两表并排"
+ },
+ "073.pdf": {
+  "category": "B",
+  "language": "中文",
+  "header_structure": "多级分组、合并单元格多",
+  "quality": "清晰",
+  "note": "国标表2续与表3 α-β型钛合金化学成分，超宽旋转分组列头并排两表"
+ },
+ "074.jpg": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "合并单元格多",
+  "quality": "清晰",
+  "note": "锐化HTML截图发票表，Pay to/Customer合并单元格，小计/税额/合计跨行，黑白线框"
+ },
+ "075.jpg": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组、合并单元格多",
+  "quality": "清晰、彩色样式",
+  "note": "股权结构表截图，Common Stock/Investor Rounds/Exit大组嵌套Shares/%/$列，彩色高亮单元格"
+ },
+ "076.jpg": {
+  "category": "F",
+  "language": "英文",
+  "header_structure": "无表头（分节）",
+  "quality": "清晰、彩色样式",
+  "note": "损益表可视化布局，仅左标签右数值两列，粗体分节（Revenue/COGS…）缩进子项，无单元格网格线"
+ },
+ "077.pdf": {
+  "category": "A",
+  "language": "英文",
+  "header_structure": "简单、合并单元格多",
+  "quality": "彩色样式",
+  "note": "Monster Beverage合并资产负债表，两列年份，蓝色行带，分ASSETS/LIABILITIES节，含折行长注释"
+ },
+ "078.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "亚马逊合并经营报表，白底黑字，仅水平横线分隔，缩进列示费用明细与2015-2017年度列，数字对齐工整"
+ },
+ "079.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "亚马逊合并现金流量表，经营/投资/筹资三段缩进结构，仅横线下划线，数字清晰无畸变"
+ },
+ "080.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "彩色样式",
+  "note": "财务三表汇总截图，深蓝标题色带分区，橙色方框箭头标注，行列数值清晰"
+ },
+ "081.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "合并单元格多",
+  "quality": "清晰",
+  "note": "学校-委员会-班级三层嵌套表，黑色实线网格，班级内嵌子表，体育设施列为整句说明"
+ },
+ "082.png": {
+  "category": "C",
+  "language": "中文",
+  "header_structure": "合并单元格多",
+  "quality": "清晰",
+  "note": "Excel窗口截图，分部分项工程量清单，含公式栏与工作表标签，项目特征列为多行工程描述"
+ },
+ "083.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "不同表格错误率统计，黑色网格，高/低风险错误分组加粗行，列含A、B与错误率公式"
+ },
+ "084.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "简单",
+  "quality": "彩色样式、正文混排",
+  "note": "化学品目录网页截图，表头带筛选下拉框与勾选框，隔行浅紫高亮，列字段多"
+ },
+ "085.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "清晰",
+  "note": "生产分销只读表，按生产商折叠分组（▼DowDuPont等），下属化学品缩进列示"
+ },
+ "086.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "简单",
+  "quality": "彩色样式",
+  "note": "数据库键值结果表，隔行灰蓝底色，列为id/entry_id/field_id/slug/value，值含邮箱电话"
+ },
+ "087.png": {
+  "category": "F",
+  "language": "英文",
+  "header_structure": "无表头",
+  "quality": "清晰、彩色样式",
+  "note": "分类结果热力图，彩色色块矩阵，行水果名、列各模型指标名，格内为分数与右侧色条"
+ },
+ "088.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组",
+  "quality": "彩色样式",
+  "note": "各大洲赛事折叠树表，绿色表头，展开Oceania后内含季节/城市/国旗子表"
+ },
+ "089.png": {
+  "category": "F",
+  "language": "纯数字",
+  "header_structure": "无表头",
+  "quality": "清晰、彩色样式",
+  "note": "矩形树图（treemap），彩色色块面积分块，仅标数字1-18，无行列概念与单元格线"
+ },
+ "090.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "合并单元格多",
+  "quality": "彩色样式",
+  "note": "Excel网格中演示RowSpan/ColumnSpan合并，彩色块标注跨行列范围，A-F列号可见"
+ },
+ "091.png": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组、合并单元格多",
+  "quality": "清晰",
+  "note": "混淆矩阵统计表，Predicted大表头跨列，Count/Overall/Row/Column Percent各跨Fail/Pass，多层合并"
+ },
+ "092.jpg": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "多级分组、合并单元格多",
+  "quality": "彩色样式",
+  "note": "漏斗管理计划Excel截图，青绿分区色带，12个月份列，多行表头与黄色高亮单元格"
+ },
+ "093.jpg": {
+  "category": "C",
+  "language": "英文",
+  "header_structure": "简单",
+  "quality": "清晰",
+  "note": "等宽字体虚线框定义表，三列项目/描述/变量名，点状边框，文字锐利如排版稿"
+ },
+ "094.jpg": {
+  "category": "C",
+  "language": "中文",
+  "header_structure": "多级分组",
+  "quality": "清晰、水印、彩色样式",
+  "note": "中文产品季度销售表，2019-2021季度列，按外设/配件/智能设备分组含小计总计，右下角知乎水印"
+ }
+}

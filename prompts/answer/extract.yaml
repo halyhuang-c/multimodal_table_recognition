@@ -1,0 +1,26 @@
+name: extract
+version: v1.1
+model: text
+description: 内容提取：定位依据 + 取值，输出 JSON
+template: |
+  下面是一张表格的 HTML 表示。{{ unit_clause }}
+  用户问题：{{ question }}
+
+  请以 JSON 输出（只输出 JSON，不要解释）：
+  {"locate": {"row_header": "...", "col_header": "...", "header_path": "..."},
+   "value": "...", "reason": "一句话"}
+
+  规则：
+  - value 必须原样来自表格文本；多值问题 value 用 JSON 数组；
+  - 枚举类题目（"列出所有/有哪些/分别"等要求多个条目）：逐行扫描全表，
+    value 数组必须包含表中全部满足题意的行，按表格行序排列，禁止提前停止；
+    目标列为空的行跳过，不要用空串占位；
+  - 汇总行（合计/小计/总计/汇总）仅在题目明确求总额或汇总时输出，
+    枚举明细项时排除汇总行；
+  - 定位依据（row_header/col_header/header_path）必须真实存在于表头/行标题中；
+  - 表格可能是财务/产品/模型跑分等任意领域，按题面语义理解，不要假设特定领域；
+  - 涉及单位或字段继承（合并单元格向下继承）时在 reason 说明；
+  - 若目标单元格含 [MASK]，value 输出 [MASK]，reason 说明"数据不可辨认"。
+
+  表格 HTML：
+  {{ table_html }}

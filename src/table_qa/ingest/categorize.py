@@ -1,17 +1,14 @@
 """文件加载与路由探测：实现设计文档 §2.3 路由决策树。
 
-L1 静态清单路由（file_categories.json）优先；
-L2 运行时探测兜底（文本密度 / 抽表可行性）。
+L2 运行时探测（文本密度 / 抽表可行性），不依赖任何预置清单。
 """
 
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 
 from loguru import logger
-from pydantic import BaseModel, Field
 
 from table_qa.config import Settings
 from table_qa.schema import FileCategory, FileProfile
@@ -27,17 +24,6 @@ def file_sha(path: Path) -> str:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()[:12]
-
-
-class _RawCategory(BaseModel):
-    """file_categories.json 单条记录。"""
-
-    category: FileCategory = "C"
-    language: str = "zh"
-    header_structure: str = ""
-    quality: str = ""
-    note: str = ""
-    dedup_of: str | None = None
 
 
 def _detect_category(path: Path, settings: Settings) -> tuple[FileCategory, str]:
@@ -115,20 +101,11 @@ def _detect_image_category(path: Path) -> tuple[FileCategory, str]:
 
 
 def load_profiles(settings: Settings) -> dict[str, FileProfile]:
-    """加载 files/ 全部文件的档案：sha1 去重 + 分类路由。
-
-    路由策略（真实赛题数据未知，两层设计）：
-    - L1 静态清单（file_categories.json）：仅本地调研加速，文件缺失自动跳过
-    - L2 运行时探测：真实赛题主路径，无需任何预置知识
+    """加载 files/ 全部文件的档案：sha1 去重 + L2 运行时分类探测。
 
     返回 {file_name: FileProfile}。
     """
     files_dir = settings.paths.abs_path(settings.paths.files_dir)
-    cat_path = settings.paths.abs_path(settings.paths.categories)
-    categories: dict[str, _RawCategory] = {}
-    if cat_path.exists():
-        raw = json.loads(cat_path.read_text(encoding="utf-8"))
-        categories = {name: _RawCategory(**item) for name, item in raw.items()}
 
     seen_sha: dict[str, str] = {}   # sha1 -> 首个文件名
     profiles: dict[str, FileProfile] = {}
@@ -140,20 +117,14 @@ def load_profiles(settings: Settings) -> dict[str, FileProfile]:
         if dedup_of is None:
             seen_sha[sha] = path.name
 
-        raw_cat = categories.get(path.name)
-        if raw_cat is not None:
-            cat, reason = raw_cat.category, f"L1 清单: {raw_cat.note[:40]}"
-        else:
-            cat, reason = _detect_category(path, settings)
-            logger.debug("L2 探测 {} -> {} ({})", path.name, cat, reason)
+        cat, reason = _detect_category(path, settings)
+        logger.debug("L2 探测 {} -> {} ({})", path.name, cat, reason)
 
         profiles[path.name] = FileProfile(
             file_id=sha,
             file_name=path.name,
             path=path,
             category=cat,
-            language=raw_cat.language if raw_cat else "zh",
-            quirks=[s for s in (raw_cat.quality, raw_cat.header_structure) if s] if raw_cat else [],
             dedup_of=dedup_of,
         )
     return profiles

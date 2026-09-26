@@ -29,7 +29,6 @@ dashscope:
 paths:
   files_dir: files                    # 92 个目标文件
   tests_xlsx: data/tests.xlsx
-  categories: research/file_categories.json   # 调研产物（L1 本地加速）；真实赛题时删除或清空此文件即纯 L2 路由
   cache_dir: cache                    # 识别缓存（跨 run 持久）
   vector_dir: vectorstore             # ChromaDB
   runs_dir: runs                      # 中间过程根（runs/work/answers，无需关心）

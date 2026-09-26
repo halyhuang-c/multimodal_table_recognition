@@ -90,7 +90,6 @@ Key 分离原则：`.env` 里两个 Key 各自独立，删掉 `TOKEN_PLAN_API_KE
 | dashscope | vision_model / text_model | 默认 `qwen-vl-max` / `qwen-plus`，temperature=0 确定性调用 |
 | dashscope | vision_concurrency / text_concurrency | 并发信号量（限流保护） |
 | paths | files_dir / tests_xlsx | 官方数据位置 |
-| paths | categories | L1 调研清单（`research/`，真实赛题时删除即纯 L2 路由） |
 | pdf | dpi / text_density_threshold | 页图渲染精度 / 数字 PDF 判定阈值（chars/页 > 50） |
 | vectorstore | top_k / min_similarity | RAG 检索参数 |
 | output | show_confidence | `true` 生成调试文件；正式提交用 `--submit` 自动关闭 |
@@ -100,17 +99,14 @@ Key 分离原则：`.env` 里两个 Key 各自独立，删掉 `TOKEN_PLAN_API_KE
 ```powershell
 # 0. 数据就位（已完成）：data/tests.xlsx、data/submit-template.xlsx、files/（92 个样本）
 
-# 1. 生成调研路由元数据（可选，仅本地加速）
-.venv\Scripts\python scripts\build_categories.py
-
-# 2. 数据链路自检（无需 API Key）
+# 1. 数据链路自检（无需 API Key）
 .venv\Scripts\python scripts\smoke_data.py
-#    预期：908 题合法、22 处修复命中、路由分布 A73/B147/C440/D170/F78
+#    预期：908 题合法、22 处修复命中、路由分布 B220/C600/D20/F68（L2 运行时探测）
 
-# 3. 跑 3 题冒烟（需要 API Key）
+# 2. 跑 3 题冒烟（需要 API Key）
 .venv\Scripts\table-qa run --limit 3
 
-# 4. 启动 Web 调试界面
+# 3. 启动 Web 调试界面
 .venv\Scripts\table-qa web
 #    浏览器打开 http://127.0.0.1:8000
 ```
@@ -203,9 +199,6 @@ multimodal_table_recognition/
 ├── data/                          # 纯官方输入（真实赛题时整体替换）
 │   ├── tests.xlsx / submit-template.xlsx
 │   └── files/                     # 92 个样本文件
-├── research/                      # 调研产物（与程序解耦）
-│   ├── 表格识别数据集分类清单.xlsx
-│   └── file_categories.json       # L1 路由元数据（删除即纯 L2）
 ├── src/table_qa/
 │   ├── cli.py                     # CLI 入口（run / ingest / web）
 │   ├── config.py / schema.py      # 配置 / 强类型数据模型
@@ -219,7 +212,7 @@ multimodal_table_recognition/
 │   ├── indexing/                  # ChromaDB RAG
 │   ├── answer/                    # 三题型答题 / 沙箱 / 格式化
 │   └── web/                       # FastAPI 调试界面
-├── scripts/                       # build_categories / smoke_data / verify_l2_detection
+├── scripts/                       # smoke_data 等开发辅助脚本
 ├── cache/                         # 识别缓存（跨 run 持久，可整体删除重建）
 ├── vectorstore/                   # ChromaDB（可整体删除重建）
 ├── runs/work/                     # 中间过程（answers trace，无需关心）
@@ -244,4 +237,4 @@ multimodal_table_recognition/
 | 断点续跑 | 天然支持：直接重跑同一命令，已完成题目自动跳过（`runs/work/answers/`）；识别层缓存全局持久；重跑个别题删对应 `answers/{qid}.json`；全部重来删 `runs/work/` |
 | 中途改了 prompt | Web 界面点"重载 Prompts"；CLI 重新运行即可（缓存按指纹自动失效） |
 | Windows 控制台中文乱码 | 程序已内置 UTF-8 处理；若外部工具乱码，设置 `PYTHONIOENCODING=utf-8` |
-| 真实赛题数据 | 替换 `data/tests.xlsx` 与 `data/files/`，删除 `research/file_categories.json`，其余零改动 |
+| 真实赛题数据 | 替换 `data/tests.xlsx` 与 `data/files/`，其余零改动（路由全靠 L2 运行时探测） |

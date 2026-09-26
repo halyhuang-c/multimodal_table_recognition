@@ -63,7 +63,7 @@
 
 - **目标文件** `data/files/`（92 个，编号 001~094 缺 042/050）：pdf=25 / png=31 / jpg=33 / webp=1；**无 xlsx/docx**（原生通道降级为 backlog）。
 
-- **分类清单**（调研产物，归档于 `research/`）→ 转为路由元数据 `research/file_categories.json`：
+- **开发期调研结论**（用于了解这批样本的分布特征；L1 清单机制已移除，运行时全走 L2 探测）：
 
 | 类别 | 数量 | 特征 | 路由策略 |
 |---|---|---|---|
@@ -128,12 +128,11 @@
         └─ 否则 → OCR+VLM 双引擎融合
 ```
 
-**两层路由机制**（真实赛题数据未知——分类清单仅为本地调研产物）：
+**单层路由：L2 运行时自动探测**（真实赛题数据未知，不依赖任何预置清单）：
 
-| 层 | 定位 | 机制 |
+| 机制 | 定位 | 判定 |
 |---|---|---|
-| L1 静态清单路由 | **仅本地调研加速**，真实赛题不可用 | 从 `file_categories.json` 读类别（文件缺失自动跳过） |
-| L2 运行时自动探测 | **真实赛题主路径**，无需预置知识 | 按决策树判定：PDF 文本密度→B/D；图片 OpenCV 长直线数<3→F（色彩信号实测不可靠已弃用） |
+| L2 运行时自动探测 | **唯一路由路径**，无需预置知识 | 按决策树判定：PDF 文本密度→B/D；图片 OpenCV 长直线数<3→F（色彩信号实测不可靠已弃用） |
 
 L2 实测（92 样本对照调研真值）：引擎分支路由正确率——pdfplumber 分支 22/22=100%；图片 F 类直接命中 2/6，其余 4 个（热力图/树图/信息图线数不少）由 **qwen_engine 空结果重试链**兜底自动切 semantic_rebuild；D→C 13 个 M1 阶段同引擎零影响（M2 加清晰度检测后改进）。
 
@@ -281,9 +280,6 @@ multimodal_table_recognition/
 │   ├── tests.xlsx                 # 从天池目录复制进来
 │   ├── submit-template.xlsx
 │   └── files/                     # 92 个样本文件
-├── research/                      # 调研产物隔离区（与程序解耦）
-│   ├── 表格识别数据集分类清单.xlsx
-│   └── file_categories.json       # L1 路由元数据（真实赛题时删除即纯 L2）
 ├── src/table_qa/
 │   ├── schema.py / config.py
 │   ├── ingest/      questions.py · loader.py · preprocess.py · categorize.py
@@ -294,7 +290,7 @@ multimodal_table_recognition/
 │   ├── answer/      select.py · structure.py · extract.py · thinking.py
 │   │                · sandbox.py · formatter.py
 │   └── cli.py
-├── scripts/         local_eval.py · cost_report.py · preview.py · build_categories.py
+├── scripts/         local_eval.py · cost_report.py · preview.py · smoke_data.py
 ├── cache/           # 持久识别/融合缓存
 ├── runs/            # 每次运行产物
 └── tests/
@@ -306,7 +302,7 @@ multimodal_table_recognition/
   1. 文件名补零归一化（`58.pdf→058.pdf` 等，规则：去前导零匹配 + 题干中的文件名交叉验证）；
   2. 脏行题型修复（question_type 非枚举值时，按题意+answer_format 推断，id=63 → extract）；
   3. 校验（id 唯一、文件存在、枚举合法），异常行进 `skipped.csv` 不中断全局。
-- **categorize.py**：`scripts/build_categories.py` 一次性把分类清单 xlsx 转成 `research/file_categories.json`（类别/语言/干扰项/去重关系），运行时按 file_id 查路由；文件缺失自动跳过（纯 L2）。
+- **categorize.py**：L2 运行时探测分类（PDF 文本密度 → B/D；图片 OpenCV 结构线 → C/F）+ sha1 内容去重，零预置知识、零 token。
 - **loader.py**：按类别路由加载——A/B 类 PDF 用 pdfplumber 读文本层与表格线框；C/D/F 类图片与 PDF 渲染页图（DPI 可配默认 220）；图片 Pillow 载入。
 - **preprocess.py**：D 类专项——EXIF 修正、纠偏（PaddleOCR 方向分类 + Hough 兜底）、去噪、红章/打码区域检测（标记后 repair 链路聚焦重识别）；多语种文件配置 OCR 语言包；F 类不做线检测预处理。
 
@@ -470,7 +466,6 @@ engines:
   pdfplumber: { enabled: true }        # A/B类主源
   paddle: { enabled: true, device: gpu, workers: 1 }
   textlayer: { enabled: true }
-routing: { categories: research/file_categories.json }   # 调研产物；真实赛题删除该文件即纯 L2 路由
 pdf: { dpi: 220 }
 fusion: { text_sim_threshold: 0.85, repair_rounds: 2 }
 select: { hint_weight: 0.5, keyword_weight: 0.3, page_weight: 0.2 }
@@ -648,7 +643,7 @@ DataFrame `df` 是表格数据（多级表头已展平为 "父:子" 列名，合
 - submit-template.xlsx 确认两列输出；
 - 分类清单全量解读：五类路由、干扰名单、多语种、去重关系。
 
-**M1 开工前剩余**：
-1. `scripts/build_categories.py`：分类清单 → `file_categories.json`；
+**M1 开工前剩余**（均已完成；其中分类清单产物与 L1 查表机制已随后移除，现为纯 L2 路由）：
+1. 分类清单 → 路由元数据（已移除）；
 2. PDF 页数/文本层密度统计（A/B 类 pdfplumber 抽表可行性验证，抽 3 个文件试抽）；
 3. 渲染抽查 10 个代表文件（A/B/C/D/F 各 2）人工确认分类准确性。

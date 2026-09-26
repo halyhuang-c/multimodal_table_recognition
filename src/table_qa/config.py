@@ -42,7 +42,6 @@ class DashScopeCfg(BaseModel):
 class PathsCfg(BaseModel):
     files_dir: Path = Path("files")
     tests_xlsx: Path = Path("data/tests.xlsx")
-    categories: Path = Path("data/file_categories.json")
     cache_dir: Path = Path("cache")
     vector_dir: Path = Path("vectorstore")
     runs_dir: Path = Path("runs")          # 中间过程根（runs/work/answers）

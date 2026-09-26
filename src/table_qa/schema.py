@@ -37,14 +37,12 @@ class Question(BaseModel):
 
 
 class FileProfile(BaseModel):
-    """文件档案：来自分类清单（L1 静态路由）或运行时探测（L2）。"""
+    """文件档案：运行时 L2 探测（文本密度 / 结构线）生成。"""
 
     file_id: str                      # 内容 sha1 前 12 位
     file_name: str
     path: Path
     category: FileCategory = "C"      # 未知文件默认 C（双引擎）
-    language: str = "zh"
-    quirks: list[str] = Field(default_factory=list)
     dedup_of: str | None = None       # 与其他文件内容相同（如 056≡010）
 
 

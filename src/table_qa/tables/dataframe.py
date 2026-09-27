@@ -33,14 +33,21 @@ def to_halfwidth(s: str) -> str:
 
 
 def clean_number(text: str) -> float | int:
-    """数字清洗：可转数值则转（千分位/全角/括号负数/百分号），不可转抛 ValueError。"""
+    """数字清洗：可转数值则转（千分位/全角/括号负数/百分号/欧式小数逗号），
+    不可转抛 ValueError。"""
     s = to_halfwidth(text).strip()
     if s in _DASH or not s:
         raise ValueError(text)
     neg = False
     if s.startswith("(") and s.endswith(")"):
         neg, s = True, s[1:-1]
-    s = s.replace(",", "").replace("，", "").replace(" ", "")
+    # 欧式小数逗号（葡语区 "9,3"=9.3）：千分位分组恒为 3 位数字，
+    # 逗号后跟 1~2 位只可能是小数——先转点再剥其余逗号，防 df 层
+    # 被污染成 93/94（qid=304/308 实测 max 算成 94）
+    if re.fullmatch(r"-?\d{1,3}[，,]\d{1,2}", s):
+        s = s.replace("，", ".").replace(",", ".")
+    else:
+        s = s.replace(",", "").replace("，", "").replace(" ", "")
     if s.endswith("%"):
         s = s[:-1]
     v = float(s)

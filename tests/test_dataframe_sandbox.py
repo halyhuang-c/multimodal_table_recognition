@@ -19,6 +19,45 @@ def test_clean_number_variants() -> None:
     assert clean_number("12.30%") == 12.30
 
 
+def test_clean_number_european_decimal_comma() -> None:
+    # 欧式小数逗号（葡语区 031.png）：逗号后 1~2 位是小数不是千分位
+    assert clean_number("9,3") == 9.3
+    assert clean_number("9,4") == 9.4
+    assert clean_number("10,25") == 10.25
+    # 千分位（3 位分组）行为不变
+    assert clean_number("1,234") == 1234
+    assert clean_number("188,661,393.95") == 188661393.95
+
+
+def test_ops_argmax_and_rowmax() -> None:
+    import pandas as pd
+    from table_qa.answer.ops import execute_op
+    df = pd.DataFrame([["甲", 10.0, 3.0], ["乙", 5.0, 8.0], ["丙", "–", 1.0]],
+                      columns=["名称", "A年", "B年"])
+    # 列内找行名（VP 最高模型类）
+    assert execute_op({"op": "argmax", "col": "A年"}, df) == "甲"
+    assert execute_op({"op": "argmin", "col": "B年"}, df) == "丙"
+    # 行内找列名（PE 最低年份类）
+    assert execute_op({"op": "rowmax", "row": "乙"}, df) == "B年"
+    assert execute_op({"op": "rowmin", "row": "乙"}, df) == "A年"
+
+
+def test_ops_rowmax_year_translation_and_colcount() -> None:
+    import pandas as pd
+    from table_qa.answer.ops import execute_op
+    # 扁平多级表头 + 年份行：列名是 Parent.N，应翻译成年份
+    df = pd.DataFrame(
+        [["Fiscal Year", 2012, 2013, 2017],
+         ["Net Earnings", 2474.0, 11791.0, 33346.0]],
+        columns=["项目", "Hist.0", "Hist.1", "Hist.2"])
+    assert execute_op({"op": "rowmax", "row": "Net Earnings"}, df) == "2017"
+    # ✅矩阵：返回匹配最多的列名
+    dm = pd.DataFrame([["功能1", "✅", "❌"], ["功能2", "✅", "✅"],
+                       ["功能3", "✅", "❌"]],
+                      columns=["特性", "Quarkdown", "LaTeX"])
+    assert execute_op({"op": "colcount", "match": "✅"}, dm) == "Quarkdown"
+
+
 def test_clean_number_dash_is_nan() -> None:
     import math
     with pytest.raises(ValueError):

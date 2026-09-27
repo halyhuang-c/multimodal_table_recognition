@@ -50,6 +50,40 @@ def test_number_none_and_nan_intercepted() -> None:
     assert format_answer(float("nan"), "number") == ""
 
 
+def test_number_mask_and_notfound_not_fake_zero() -> None:
+    # [MASK]/未找到是"数据不可辨认"，不得伪装成数值 0（qid=74 实测：
+    # const [MASK] 被归一 0 后置信度 high，掩盖失败）——输出空串
+    assert format_answer("[MASK]", "number") == ""
+    assert format_answer("未找到", "number") == ""
+    # 其余无数值残留仍归一 0（原行为不变，影响面隔离）
+    assert format_answer("--", "number") == "0"
+    assert format_answer(0, "number") == "0"
+
+
+def test_number_european_decimal_comma() -> None:
+    # 欧式小数逗号（葡语区 031.png 实测 "9,3" 被当千分位剥成 93）：
+    # 千分位分组恒为 3 位，逗号后 1~2 位必是小数
+    assert format_answer("9,3", "number") == "9.3"
+    assert format_answer("9,4", "number") == "9.4"
+    assert format_answer("10,25", "number") == "10.25"
+    # 千分位（3 位分组）行为不变
+    assert format_answer("1,234", "number") == "1234"
+    assert format_answer("125,000", "number") == "125000"
+    # 数组元素同样归一为数值（官方规范数字不带引号）
+    assert format_answer(["9,3", "10"], "json_array") == '[9.3, 10]'
+
+
+def test_string_unwraps_single_element_list() -> None:
+    # string 题的单元素列表是提取层包装残留：解包为标量
+    # （qid=95/96 fmt=string 却输出 JSON 数组导致格式不匹配）
+    assert format_answer(["成果:产品原型v2.0"], "string") == "成果:产品原型v2.0"
+    assert format_answer([69.49], "string") == "69.49"
+    # 多元素列表仍按 JSON 数组（枚举语义）
+    assert format_answer(["a", "b"], "string") == '["a", "b"]'
+    # 字符串形式的单元素数组（提取层偶发）同样解包（qid=95）
+    assert format_answer('["开发方案+技术路径"]', "string") == "开发方案+技术路径"
+
+
 # ---------------------------------------------------------------------------
 # json_array：空值填空字符串（不是 null）、数字元素不带引号
 # ---------------------------------------------------------------------------

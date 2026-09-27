@@ -42,12 +42,16 @@ def answer_extract(question: Question, table: NormalizedTable) -> dict:
     pm = get_prompt_manager()
     unit_clause = f"表内单位注：{table.unit_note}。" if table.unit_note else ""
     fmt_note = f"答案格式要求：{question.format_note}。" if question.format_note else ""
+    # 表名上下文：标题类问题答案常只在表名元数据（不在 HTML 行内），
+    # 不传则模型只能拿 colspan 表头凑数（qid=299 实测答成列头 Agremiação）
+    name_clause = f"本表表名：{table.table_name}。" if table.table_name else ""
     prompt = pm.render(
         "extract",
         unit_clause=unit_clause,
         question=question.question,
         table_html=table.html[:8000],   # 超大表截断（prompt 成本控制）
         format_note=fmt_note,
+        table_name_clause=name_clause,
     )
     raw = get_llm_hub().chat(prompt, phase="extract", question_id=question.id)
     try:
@@ -91,6 +95,20 @@ def value_empty(value: object) -> bool:
     if isinstance(value, list):
         return len(value) == 0
     return not str(value).strip()
+
+
+def value_garbled(value: object) -> bool:
+    """extract 结果值是否为乱码文本（CID 子集字体 mojibake——触发视觉降级）。
+
+    乱码 PDF（071-073 等 D 类）文本层是符号汤（"!$#-*,+\\"*)('"），识别表
+    偶发残留此类单元格文本进矩阵；正常答案（中英文/数值/常见符号）符号
+    占比远低于 0.5（qid=685/691/692 实测乱码值占比 0.68~1.0）。
+    """
+    if not isinstance(value, str) or len(value) < 4:
+        return False
+    junk = sum(1 for ch in value
+               if not (ch.isalnum() or ch.isspace()))
+    return junk / len(value) > 0.5
 
 
 def vision_extract(question: Question, profile: FileProfile,

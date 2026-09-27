@@ -1,5 +1,5 @@
 name: thinking_code
-version: v1.2
+version: v1.3
 model: text
 description: 推理题代码生成：读题 + DataFrame 上下文，生成 pandas 计算代码
 template: |
@@ -26,6 +26,10 @@ template: |
     紧邻的"其中："开头子行（遇第一个非"其中："有值行停止）；目标行后无子项时
     result 返回 []，不要把别处的子项算进来；
   - 若需单位换算（表为万元、题目要元），显式乘系数；
+  - 欧式小数逗号：葡语/欧陆表格中 "9,3" 表示 9.3，此类值在 df 中
+    是字符串——数值比较/求和前先 .astype(str).str.replace(',','.')
+    再 pd.to_numeric(errors='coerce')，不要直接当千分位去掉逗号
+    （qid=308 实测 max 算成 94）；
   - df 中的 NaN（不可辨认单元格）在计数/求和时跳过（dropna 或 sum 默认行为），不要报错；
   - 代码要短，直接给出计算路径，不要冗长推导；
   - 不要输出任何解释，只输出代码。

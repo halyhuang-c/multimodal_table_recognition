@@ -9,13 +9,15 @@
 from __future__ import annotations
 
 import operator
+import re
 from typing import Annotated, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from loguru import logger
 from rapidfuzz import fuzz
 
-from table_qa.answer.extract import answer_extract, value_empty, vision_extract
+from table_qa.answer.extract import (answer_extract, value_empty,
+                                     value_garbled, vision_extract)
 from table_qa.answer.formatter import format_answer
 from table_qa.answer.structure import answer_structure, parse_range
 from table_qa.answer.thinking import answer_thinking
@@ -40,6 +42,16 @@ _PENALTY: dict[str, float] = {
     "mask_in_table": 0.10,       # 选中表含不可辨认单元格
     "no_table": 0.40,            # 该文件没识别出任何表
 }
+
+# 识别层标记泄漏签名：VLM 偶发把合并属性当单元格文本（090.png 实测）
+_MARKUP_LEAK = re.compile(r'(?:Column|Row)Span\s*=\s*"?[\d]+"?', re.IGNORECASE)
+# 引用名词（题干引号内的字段名）：完全不在选中表内 → 矩阵不可能按名定位，
+# 值多为错表产物（qid=135-137 实测：中文机型名 vs 英文表名词面失配，
+# 四题全选 1.1 表答成同一个 Qty）→ 降级 VLM 看原图
+_QUOTED_NOUN = re.compile(r'[“"]([^”"\'，。]{2,24})[”"]')
+# 竖排文本（表格左缘竖排表名/标题）：不在行列表格矩阵内，矩阵只能取到
+# 乱码残留或旁表名（qid=692 实测选了右侧表2 的名字）→ 直接 VLM 读页图
+_VERTICAL_Q = re.compile(r'竖排|竖向|竖着')
 
 
 class PipelineContext:
@@ -241,8 +253,17 @@ def build_answer_graph(ctx: PipelineContext):
             return _no_table_result()
         result = answer_extract(q, table)
         # 视觉降级：矩阵取不到值（答案在原图不在表格：是否含二维码/
-        # 最左侧表头/卡片字段等，qid=484 等 17 题实测）→ VLM 看原图直答
-        if value_empty(result.get("value")) and state.get("profile") is not None:
+        # 最左侧表头/卡片字段等，qid=484 等 17 题实测）→ VLM 看原图直答。
+        # 标记泄漏同判无效：090.png 识别表把合并属性 ColumnSpan="2"/
+        # RowSpan="5" 当单元格文本，矩阵"取到值"实为标记伪值（qid=870-874
+        # 实测 5 题全中），颜色区域类答案只在原图可辨
+        leak = _MARKUP_LEAK.search(str(result.get("value") or "")) is not None
+        nouns = _QUOTED_NOUN.findall(q.question)
+        noun_miss = bool(nouns) and not all(n in table.html for n in nouns)
+        garbled = value_garbled(result.get("value"))
+        vertical = _VERTICAL_Q.search(q.question) is not None
+        if ((value_empty(result.get("value")) or leak or noun_miss or garbled
+                or vertical) and state.get("profile") is not None):
             vision = vision_extract(q, state["profile"], table)
             if vision is not None:
                 result = vision

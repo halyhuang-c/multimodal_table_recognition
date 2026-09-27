@@ -44,9 +44,13 @@ def format_answer(value: object, answer_format: str, precision: int | None = Non
 
 
 def _format_number(value: object, precision: int | None) -> str:
+    # [MASK]/未找到是"数据不可辨认"而非数值 0：输出空串走官方空答案规范，
+    # 防 const [MASK] 偷懒答案被伪装成合法 0 且置信度 high（qid=74 等实测）
+    if isinstance(value, str) and ("MASK" in value or "未找到" in value):
+        return ""
     num = _to_number(value)
     if num is None:
-        return "0"   # number 题答案永不为空：无数值残留（"未找到"/"--"）归一 0
+        return "0"   # number 题答案永不为空：无数值残留（"--"等）归一 0
     if precision is not None:
         return f"{num:.{precision}f}"
     if num.is_integer():
@@ -60,16 +64,20 @@ def _format_number(value: object, precision: int | None) -> str:
 # number 清洗符号：货币（含全角＄￥）/百分号（含全角％）/约数（~≈约）/空白
 _NUM_SYMBOL_RE = re.compile(r"[＄$￥¥€£%％~≈约\s]")
 _NUM_PLAIN_RE = re.compile(r"-?\d+(?:\.\d+)?")
+# 欧式小数逗号（葡语区 "9,3"=9.3）：千分位分组恒为 3 位数字，
+# 逗号后跟 1~2 位只可能是小数——剥逗号前先转点，防 10 倍错误
+# （qid=304/305 实测 "9,3" 被当千分位剥成 93）
+_DECIMAL_COMMA_RE = re.compile(r"^-?\d{1,3}[，,]\d{1,2}$")
 
 
 def _to_number(value: object) -> float | None:
     """尽力数值化，完全无数值返回 None（由 _format_number 归一 0）。
 
     清洗链：整串括号（会计负数记法 "(7,756)" → -7756）→ 剥货币/百分/
-    约数符号与空白 → float。文本混合（值+占比 "5045 (33.1)"、单位残留
-    "116.03㎡"、识别乱码）退化为提取首个数值：千分位分组优先（复用
-    下方 split 守卫区的 _GROUPED_NUMBER_RE，"188,661,393.95" 是一个
-    值不是多值粘连），否则取最左裸数字段。
+    约数符号与空白 → 欧式小数逗号转点 → float。文本混合（值+占比
+    "5045 (33.1)"、单位残留 "116.03㎡"、识别乱码）退化为提取首个数值：
+    千分位分组优先（复用下方 split 守卫区的 _GROUPED_NUMBER_RE，
+    "188,661,393.95" 是一个值不是多值粘连），否则取最左裸数字段。
     """
     s = str(value).strip()
     if not s:
@@ -77,7 +85,11 @@ def _to_number(value: object) -> float | None:
     neg = s[0] in "(（" and s[-1] in ")）"
     if neg:
         s = s[1:-1].strip()
-    s = _NUM_SYMBOL_RE.sub("", s).replace(",", "").replace("，", "").strip()
+    s = _NUM_SYMBOL_RE.sub("", s).strip()
+    if _DECIMAL_COMMA_RE.match(s):        # "9,3" → "9.3"（先于剥逗号）
+        s = s.replace("，", ".").replace(",", ".")
+    else:
+        s = s.replace(",", "").replace("，", "").strip()
     if s:
         try:
             num = float(s)
@@ -194,8 +206,21 @@ def _format_json(value: object) -> str:
 
 def _format_string(value: object, q: object | None = None) -> str:
     if isinstance(value, (list, tuple)):
+        # 单元素列表解包：string 题的 [x] 是提取层包装残留，不是多值答案
+        # （qid=95/96/597 实测 fmt=string 却输出 JSON 数组导致格式不匹配）
+        if len(value) == 1:
+            return _format_string(value[0], q)
         return _format_json_array(value, q)
     s = _clean_item(value)
+    if isinstance(s, str) and s.startswith("[") and s.rstrip().endswith("]"):
+        # 提取层偶发把 JSON 数组当字符串返回（qid=95 '["x"]'）：
+        # 解析回列表走同一套解包/数组逻辑，单元素 → 标量
+        try:
+            parsed = json.loads(s)
+        except (json.JSONDecodeError, ValueError):
+            parsed = None
+        if isinstance(parsed, list):
+            return _format_string(parsed, q)
     # 非 str（int/float 等）必须转字符串：上层 format_node 会对返回值调 .strip()
     return s if isinstance(s, str) else str(s)
 
@@ -217,6 +242,8 @@ def _maybe_number(s: str) -> int | float | None:
     """纯数字字符串（可含千分位逗号）归一为数值；其余（前导零编号、含
     单位/百分号/文本）保持字符串。返回 None 表示不是数字。"""
     t = s.replace("，", ",").strip()
+    if _DECIMAL_COMMA_RE.match(t):        # 欧式小数 "9,3" → 9.3（数组元素）
+        t = t.replace(",", ".")
     if not (_GROUPED_NUMBER_RE.fullmatch(t) or _PLAIN_NUM_RE.fullmatch(t)):
         return None
     t2 = t.replace(",", "")

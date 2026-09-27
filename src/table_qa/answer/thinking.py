@@ -23,8 +23,22 @@ from table_qa.prompts import get_prompt_manager
 from table_qa.schema import NormalizedTable, Question
 from table_qa.tables.dataframe import grid_to_dataframe
 
-_PRECISION_PAT = re.compile(r"保留\s*([一二三四五六七八九十\d]+)\s*位小数")
+# 精度问句：字符类必须含"两"（U+4E24）——"保留两位小数"的"两"不在
+# 一二三四五六七八九十 里，此前静默失配致 precision=None（qid=848 实测）
+_PRECISION_PAT = re.compile(r"保留\s*([一两二三四五六七八九十\d]+)\s*位小数")
 _CN_NUM = {"一": 1, "两": 2, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6}
+# 计数问句：subitems 等枚举 op 返回名单列表，但题目问的是"几项/多少种"，
+# fmt=number 下列表会被格式化成 0（qid=10/12 实测）→ 取 len
+_COUNTING_Q = re.compile(r"有几项|有几条|有多少|多少种|多少个|多少条|个数|项数|一共有几")
+
+
+def _count_if_counting(question: Question, result):
+    """计数问句 + number 题 + op 返回名单列表 → 以长度作答。"""
+    if (isinstance(result, list) and question.answer_format == "number"
+            and _COUNTING_Q.search(question.question)):
+        logger.info("计数问句取名单长度 qid={} len={}", question.id, len(result))
+        return len(result)
+    return result
 
 
 def _build_df(table: NormalizedTable):
@@ -111,6 +125,7 @@ def answer_thinking(question: Question, table: NormalizedTable) -> dict:
         result = execute_op(op, df)
         if _invalid_result(result):
             raise ValueError(f"op 结果不可信: {result!r}")
+        result = _count_if_counting(question, result)
         logger.info("op 主路径成功 qid={} op={}", question.id,
                     json.dumps(op, ensure_ascii=False)[:120])
         return {"value": _strip_float_noise(result),

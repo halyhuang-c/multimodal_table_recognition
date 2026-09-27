@@ -17,7 +17,8 @@ from typing import Any
 import numpy as np
 
 _OPS = ("cell", "cells", "diff", "sum", "avg", "count", "subitems", "nonzero",
-        "ratio_sum", "contains", "const", "seq")
+        "ratio_sum", "contains", "argmax", "argmin", "rowmax", "rowmin",
+        "colcount", "const", "seq")
 
 # 表格区块边界（层级）：中文序号(3) > 括号序号(2) > 冒号分组(1)。
 # 利润表"一、营业总收入"、变动表"（一）综合收益总额"、资产负债表"非流动负债："。
@@ -67,6 +68,16 @@ def _count_match(cell: str, needle: str) -> bool:
     if not cell or not needle:
         return False
     return cell == needle or needle in cell or cell in needle
+
+
+def _year_like(v) -> bool:
+    """年份格判定：1900-2099 的整数值或 "19xx"/"20xx" 文本。"""
+    if _is_empty(v):
+        return False
+    if isinstance(v, (int, float, np.integer, np.floating)):
+        f = float(v)
+        return 1900 <= f <= 2099 and f.is_integer()
+    return bool(re.fullmatch(r"(19|20)\d{2}", str(v).strip()))
 
 
 def _is_empty(v) -> bool:
@@ -280,8 +291,19 @@ def execute_op(op: dict, df):
             series = df.iloc[:, 0]
         cells = [str(v).strip() for v in series.tolist() if not _is_empty(v)]
         if not needle:
-            return int(len(df))
-        return sum(1 for v in cells if _count_match(v, needle))
+            # 全行计数：排除多级表头残留行（首列值与首列列名相同，
+            # qid=700 实测 4 层表头把 13 个牌号数成 15）
+            col0_name = re.sub(r"\s", "", str(df.columns[0]))
+            return sum(1 for v in df.iloc[:, 0].tolist()
+                       if not _is_empty(v)
+                       and re.sub(r"\s", "", str(v)) != col0_name)
+        n = sum(1 for v in cells if _count_match(v, needle))
+        if n == 0:
+            # 关键词计数为 0 多为失配（格子文本/列位置与关键词不搭：
+            # qid=878 首列无标记、qid=906/907 名单在单格逗号分隔）——
+            # 抛错降级沙箱复核；真 0 由沙箱重算同样得 0，语义不变
+            raise ValueError(f"count=0 疑似关键词失配: {needle!r}")
+        return n
     if kind == "contains":
         # 全表存在性扫描（qid=538："是否含评审记录/自由调整/复盘"——
         # 证据散落在非首列各格，count 只搜首列会误判"否"）。
@@ -293,6 +315,90 @@ def execute_op(op: dict, df):
                 if not _is_empty(v) and _count_match(str(v).strip(), needle):
                     return "是"
         return "否"
+    if kind in ("argmax", "argmin"):
+        # 极值行定位（qid=667"VP 最高的模型"）：op 词表原无极值操作，
+        # LLM 拿 nonzero 凑数返回全部行名。返回该列数值最大/最小的
+        # 首列行名；空值/文本格跳过（"–"行不参与）
+        col = _find_col(df, str(op.get("col", "")))
+        if col is None:
+            raise KeyError(f"定位失败: col={op.get('col')!r}")
+        rows_filter = [str(x) for x in (op.get("rows") or []) if str(x).strip()]
+        best_name, best_val = None, None
+        for _, r in df.iterrows():
+            first = str(r.iloc[0]).strip() if not _is_empty(r.iloc[0]) else ""
+            second_raw = r.iloc[1] if len(r) > 1 else None
+            second = (str(second_raw).strip()
+                      if second_raw is not None and not _is_empty(second_raw) else "")
+            # 首列空（rowspan 类别列展开）：回退第二列作行名——
+            # Table12 类别在首列、子类在第二列，子类行首列为空
+            # （qid=587 实测 Review 行被跳过误选类别行）
+            name = first or second
+            # 合计/总计/小计行不参与极值（qid=47 实测"合计"金额最大
+            # 被当"最高公司"返回；明细类问题按惯例排除汇总行）
+            if not name or _TOTAL_SUFFIX.search(name):
+                continue
+            if rows_filter:
+                if not any(kw in first or kw in second for kw in rows_filter):
+                    continue
+                # 指定区块（rows）时是 类别|子类 两级行标签：
+                # 极值行的身份是子类，答子类名（qid=587 应答 Review
+                # 而非类别 Everyday Writing）；第二列是数值时不算
+                if (second and second != first
+                        and not isinstance(second_raw, (int, float,
+                                                        np.integer, np.floating))):
+                    name = second
+            v = r[col]
+            if _is_empty(v) or isinstance(v, str):
+                continue
+            fv = float(v)
+            if (best_val is None or (kind == "argmax" and fv > best_val)
+                    or (kind == "argmin" and fv < best_val)):
+                best_name, best_val = name, fv
+        if best_name is None:
+            raise ValueError(f"列无数值: {op.get('col')}")
+        return best_name
+    if kind in ("rowmax", "rowmin"):
+        # 行内列向极值（qid=628"PE 最低的年份"/qid=778"最高的年份"）：
+        # 定位 row 行，扫描其数值格，返回数值最大/最小的**列名**。
+        # argmax 是列内找行名，本对是行内找列名——年份类题的年份在列头
+        row = _find_row(df, str(op.get("row", "")))
+        if row is None:
+            raise KeyError(f"定位失败: row={op.get('row')!r}")
+        best_col, best_val = None, None
+        for c in df.columns[1:]:
+            v = df.at[row, c]
+            if _is_empty(v) or isinstance(v, str):
+                continue
+            fv = float(v)
+            if (best_val is None or (kind == "rowmax" and fv > best_val)
+                    or (kind == "rowmin" and fv < best_val)):
+                best_col, best_val = str(c), fv
+        if best_col is None:
+            raise ValueError(f"行无数值: {op.get('row')}")
+        # 年份行翻译：扁平多级表头列名是 "Historical Results.5" 这类
+        # 无意义 ID，若表内存在年份行（≥3 个 19xx/20xx 格），用该行
+        # 在目标列上的值作答（qid=778 应答 2017 而非列 ID）
+        for _, r in df.iterrows():
+            year_cells = sum(1 for c in df.columns[1:]
+                             if _year_like(r[c]))
+            if year_cells >= 3:
+                lab = r.get(best_col) if best_col in r.index else None
+                if _year_like(lab):
+                    return str(int(lab)) if isinstance(lab, (int, float)) else str(lab)
+        return best_col
+    if kind == "colcount":
+        # 矩阵列计数极值（qid=339"✅矩阵哪种工具功能最多"）：返回匹配
+        # 目标标记（✅/是/1 等）格子数最多的**列名**（工具在列头）
+        needle = str(op.get("match", "✅"))
+        best_col, best_cnt = None, -1
+        for c in df.columns[1:]:
+            cnt = sum(1 for v in df[c].tolist()
+                      if not _is_empty(v) and _count_match(str(v).strip(), needle))
+            if cnt > best_cnt:
+                best_col, best_cnt = str(c), cnt
+        if best_col is None or best_cnt <= 0:
+            raise ValueError(f"无匹配标记: {needle}")
+        return best_col
     if kind == "subitems":
         return _op_subitems(df, str(op.get("item", "")))
     if kind == "nonzero":
